@@ -7,10 +7,6 @@
 #
 # Bytes are represented as plain integers (0–255), not jq strings, so arbitrary
 # binary data (bytes > 127) is handled correctly with no UTF-8 mangling.
-#
-# Include in other scripts with:
-#   include "b64";        # if b64.jq is on the jq search path
-#   include "/path/b64";  # explicit path, no .jq extension
 
 # ── Base64 character → 6-bit value ────────────────────────────────────────
 

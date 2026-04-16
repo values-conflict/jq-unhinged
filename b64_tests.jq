@@ -1,5 +1,4 @@
 # b64_tests.jq — test corpus for b64.jq
-# Run with: jq -L /path/to/b64sha256 --run-tests b64_tests.jq
 
 # b64val: A → 0,  Z → 25
 include "b64"; b64val

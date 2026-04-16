@@ -8,10 +8,6 @@
 #
 # Base64 decoding is handled by b64.jq (included below).
 #
-# Include in other scripts with:
-#   include "sha256";        # if sha256.jq is on the jq search path
-#   include "/path/sha256";  # explicit path, no .jq extension in the string
-#
 # ── Performance characteristics (jq 1.7, measured on WSL2) ──────────────────
 #
 #   The bottleneck is SHA-256 compression: ~832 bitwise-AND calls per 64-byte

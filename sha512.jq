@@ -10,10 +10,6 @@
 # Shared bitwise primitives (_nat, band, bxor, bnot32, word_to_hex) come from
 # bits.jq (included below); sha256.jq and sha512.jq share these without duplication.
 #
-# Include in other scripts with:
-#   include "sha512";        # if sha512.jq is on the jq search path
-#   include "/path/sha512";  # explicit path, no .jq extension in the string
-#
 # ── 64-bit arithmetic via [hi, lo] pairs ────────────────────────────────────
 #
 # jq numbers are IEEE 754 doubles, exact for integers up to 2^53.  SHA-512
