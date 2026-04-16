@@ -1,0 +1,66 @@
+# SHA-512 of zero bytes (empty string, base64 = "")
+include "sha512"; sha512_of_b64
+""
+"cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+
+# SHA-512 of 0x00 (one null byte, base64 = "AA==")
+include "sha512"; sha512_of_b64
+"AA=="
+"b8244d028981d693af7b456af8efa4cad63d282e19ff14942c246e50d9351d22704a802a71c3580b6370de4ceb293c324a8423342557d4e5c38438f0e36910ee"
+
+# SHA-512 of 0x00 0x01 0x02 (base64 "AAEC", no padding)
+include "sha512"; sha512_of_b64
+"AAEC"
+"8081da5f9c1e3d0e1aa16f604d5e5064543cff5d7bace2bb312252461e151b3fe0f034ea8dc1dacff3361a892d625fbe1b614cda265f87a473c24b0fa1d91dfd"
+
+# SHA-512 of binary+text mix (same bytes as sha256_tests.jq test vector)
+include "sha512"; sha512_of_b64
+"AAECAwQFaGVsbAZ5ZWFoBw=="
+"2e60d857d316d7eb2251553c320df0e48b9848399fb932a4378fcdba786ef0cbfdd7ae26884d784ab09c2ef80dac50767044cc0fa905e79401202525665f5673"
+
+# SHA-512 of 112 zero bytes — exercises the 2-block padding path
+# (112 bytes requires a second padding block: 112+1+127+16 = 256 = 2×128 bytes)
+include "sha512"; sha512_of_b64
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+"2be2e788c8a8adeaa9c89a7f78904cacea6e39297d75e0573a73c756234534d6627ab4156b48a6657b29ab8beb73334040ad39ead81446bb09c70704ec707952"
+
+# ── Real-world inputs ────────────────────────────────────────────────────────
+
+# Docker image config (compact JSON) — 451 bytes, 4 SHA-512 blocks
+include "sha512"; sha512_of_b64
+"eyJjb25maWciOnsiRW52IjpbIlBBVEg9L3Vzci9sb2NhbC9zYmluOi91c3IvbG9jYWwvYmluOi91c3Ivc2JpbjovdXNyL2Jpbjovc2JpbjovYmluIl0sIkVudHJ5cG9pbnQiOltdLCJDbWQiOlsiYmFzaCJdfSwiY3JlYXRlZCI6IjIwMjYtMDQtMDZUMDA6MDA6MDBaIiwiaGlzdG9yeSI6W3siY3JlYXRlZCI6IjIwMjYtMDQtMDZUMDA6MDA6MDBaIiwiY3JlYXRlZF9ieSI6IiMgZGViaWFuLnNoIC0tYXJjaCAnYW1kNjQnIG91dC8gJ3RyaXhpZScgJ0AxNzc1NDMzNjAwJyIsImNvbW1lbnQiOiJkZWJ1ZXJyZW90eXBlIDAuMTcifV0sInJvb3RmcyI6eyJ0eXBlIjoibGF5ZXJzIiwiZGlmZl9pZHMiOlsic2hhMjU2OjQ3ZTY3M2UzMjgxN2ZiYWY1MzYxOTM2NDU4N2ViZjZiMmQ0MWYzZmQ1ZTAyYjNmYTZhM2IyZmQwMWI0N2RkZmIiXX0sIm9zIjoibGludXgiLCJhcmNoaXRlY3R1cmUiOiJhbWQ2NCJ9Cg=="
+"e485f13485e46029985de03d7077e6733e99f1087df75005b17a83533fcedccd378b7f02b6b0a34c2b5ba4eb29d4abb191e3d13a5b6edb8e8e9dfb37dd2b5040"
+
+# Docker image config (pretty-printed JSON) — 396 bytes, 4 SHA-512 blocks
+include "sha512"; sha512_of_b64
+"ewoJImFyY2hpdGVjdHVyZSI6ICJhbWQ2NCIsCgkiY29uZmlnIjogewoJCSJDbWQiOiBbCgkJCSIvdHJ1ZSIKCQldCgl9LAoJImNyZWF0ZWQiOiAiMjAyMy0wMi0wMVQwNjo1MToxMVoiLAoJImhpc3RvcnkiOiBbCgkJewoJCQkiY3JlYXRlZCI6ICIyMDIzLTAyLTAxVDA2OjUxOjExWiIsCgkJCSJjcmVhdGVkX2J5IjogImh0dHBzOi8vZ2l0aHViLmNvbS90aWFub24vZG9ja2VyZmlsZXMvdHJlZS9tYXN0ZXIvdHJ1ZSIKCQl9CgldLAoJIm9zIjogImxpbnV4IiwKCSJyb290ZnMiOiB7CgkJImRpZmZfaWRzIjogWwoJCQkic2hhMjU2OjY1YjVhNDU5M2NjNjFkM2VhNmQzNTVmYjk3YzA0MzBkODIwZWUyMWFhODUzNWY1ZGU0NWU3NWMzMTk1NGI3NDMiCgkJXSwKCQkidHlwZSI6ICJsYXllcnMiCgl9Cn0K"
+"2971824b600cb6df47726cf919b1d8531b8d3c88c01a928c4c7c10d8cce647be6b8705db491fd6ec1dce2ff030b7017b553dd8bd0f3bd500b56c5b09e8fe9c5a"
+
+# Gzip binary data — 117 bytes, 1 SHA-512 block; exercises high-byte (>127) decode path
+include "sha512"; sha512_of_b64
+"H4sIAAAAAAACAyspKk1loDEwAAJTU1MwDQTotIGhuQmcDRE3MzM0YlAwYKADKC0uSSxSUGAYoaDe1ceNiZERzmdisGMA8SoYHMB8Byx6HBgsGGA6QDQrmiwyXQPl1cDlIUG9wYaflWEUDDgAAIAGdJIABAAA"
+"bae9ebc21672534b4a4014540b89e9b851ba90e091f3adb929a99ef575fe86ddef8584327630501f65636bc587c8b999cd4ca5f9200166abe15dc82f05f2ffca"
+
+# ── Invalid input: sha512_of_b64 ────────────────────────────────────────────
+
+# sha512_of_b64 requires a string; a number fails at explode
+include "sha512"; try sha512_of_b64 catch .
+42
+"explode input must be a string"
+
+# sha512_of_b64 requires a string; null fails at explode
+include "sha512"; try sha512_of_b64 catch .
+null
+"explode input must be a string"
+
+# ── Invalid input: sha512_of_bytes ──────────────────────────────────────────
+
+# sha512_of_bytes requires an array; null is not iterable with .[]
+include "sha512"; try sha512_of_bytes catch .
+null
+"Cannot iterate over null (null)"
+
+# sha512_of_bytes requires an array; a string is not iterable with .[]
+include "sha512"; try sha512_of_bytes catch .
+"hello"
+"Cannot iterate over string (\"hello\")"

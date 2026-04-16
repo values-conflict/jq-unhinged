@@ -40,6 +40,7 @@
 #   saves ~16% at 50 KB, but adds ~79 ms of import overhead (loading 5.6 MB of
 #   JSON tables).  Break-even vs this file: ~5 KB binary input.
 
+include "bits";
 include "b64";
 
 # ── SHA-256 round constants K[0..63] ──────────────────────────────────────
@@ -72,55 +73,8 @@ def sha256_H0: [
   1359893119, 2600822924,  528734635, 1541459225
 ];
 
-# ── Bitwise primitives (pure arithmetic — no builtins needed) ──────────────
-#
-# Core identity:  bxor(a,b) = a + b − 2·band(a,b)
-#                 bor(a,b)  = a + b −   band(a,b)
-#                 bnot32(x) = 4294967295 − x
-#
-# Only band needs real bit-level logic.  We use a 256-entry nibble lookup
-# table (indexed by a_nibble*16 + b_nibble) to process 4 bits at a time —
-# 8 lookups cover all 32 bits with no reduce loop.
-
-# Nibble AND table: T[a*16+b] = a AND b  for a, b in 0..15
-def _nat: [
-  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-  0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,
-  0,0,2,2,0,0,2,2,0,0,2,2,0,0,2,2,
-  0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,
-  0,0,0,0,4,4,4,4,0,0,0,0,4,4,4,4,
-  0,1,0,1,4,5,4,5,0,1,0,1,4,5,4,5,
-  0,0,2,2,4,4,6,6,0,0,2,2,4,4,6,6,
-  0,1,2,3,4,5,6,7,0,1,2,3,4,5,6,7,
-  0,0,0,0,0,0,0,0,8,8,8,8,8,8,8,8,
-  0,1,0,1,0,1,0,1,8,9,8,9,8,9,8,9,
-  0,0,2,2,0,0,2,2,8,8,10,10,8,8,10,10,
-  0,1,2,3,0,1,2,3,8,9,10,11,8,9,10,11,
-  0,0,0,0,4,4,4,4,8,8,8,8,12,12,12,12,
-  0,1,0,1,4,5,4,5,8,9,8,9,12,13,12,13,
-  0,0,2,2,4,4,6,6,8,8,10,10,12,12,14,14,
-  0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
-];
-
-# 32-bit AND: 8 nibble lookups, no loops
-def band(a; b):
-  _nat as $t |
-  $t[ (a         % 16) * 16 + (b         % 16) ]            +
-  $t[ ((a/16     |floor)%16) * 16 + ((b/16     |floor)%16) ] * 16       +
-  $t[ ((a/256    |floor)%16) * 16 + ((b/256    |floor)%16) ] * 256      +
-  $t[ ((a/4096   |floor)%16) * 16 + ((b/4096   |floor)%16) ] * 4096     +
-  $t[ ((a/65536  |floor)%16) * 16 + ((b/65536  |floor)%16) ] * 65536    +
-  $t[ ((a/1048576|floor)%16) * 16 + ((b/1048576|floor)%16) ] * 1048576  +
-  $t[ ((a/16777216 |floor)%16)*16 + ((b/16777216 |floor)%16)] * 16777216 +
-  $t[ (a/268435456|floor)    * 16 +  (b/268435456|floor)    ] * 268435456;
-
-# 32-bit XOR via arithmetic identity: a XOR b = a + b - 2*(a AND b)
-def bxor(a; b): band(a; b) as $ab | a + b - 2 * $ab;
-
-# 32-bit NOT: complement relative to 0xFFFFFFFF
-def bnot32: 4294967295 - .;
-
 # ── 32-bit word primitives ─────────────────────────────────────────────────
+# _nat, band, bxor, bnot32, word_to_hex are provided by bits.jq (included above).
 
 # Mask to 32 bits (jq numbers are IEEE 754 doubles, exact to 2^53)
 def mask32: . % 4294967296;
@@ -248,15 +202,6 @@ def sha256_final_pad($buf; $total_len):
         ($bits / 65536             | floor) % 256,
         ($bits / 256               | floor) % 256,
          $bits % 256 ];
-
-# ── Hex formatting ─────────────────────────────────────────────────────────
-
-# Convert a 32-bit word to an 8-character lowercase hex string
-def word_to_hex:
-  ("0123456789abcdef" | explode) as $hex |
-  [268435456, 16777216, 1048576, 65536, 4096, 256, 16, 1] as $pows |
-  [ range(8) as $i | $hex[(. / $pows[$i] | floor) % 16] ] |
-  implode;
 
 # ── Streaming SHA-256 ──────────────────────────────────────────────────────
 
