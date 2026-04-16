@@ -11,6 +11,34 @@
 # Include in other scripts with:
 #   include "sha256";        # if sha256.jq is on the jq search path
 #   include "/path/sha256";  # explicit path, no .jq extension in the string
+#
+# ── Performance characteristics (jq 1.7, measured on WSL2) ──────────────────
+#
+#   The bottleneck is SHA-256 compression: ~832 bitwise-AND calls per 64-byte
+#   block, each costing ~8.8 µs in pure-arithmetic jq.  Timing scales linearly:
+#
+#     Input (binary)   Base64 chars    Wall time    Blocks
+#     ──────────────   ────────────    ─────────    ──────
+#          1 KB            1 368         ~150 ms       16
+#         10 KB           13 656        ~1.4  s       160
+#         50 KB           68 268        ~6.8  s       800
+#
+#   Rule of thumb: ~150 ms per KB of binary input.
+#
+#   Practical thresholds for the intended use case (manifest / config validation):
+#     < 200 ms  →  ≤ 1.3 KB  — "feels instant"
+#     < 1 s     →  ≤ 6.5 KB  — acceptable for scripts
+#     < 3 s     →  ≤ 20 KB   — borderline for automation
+#     > 5 s     →  ≥ 33 KB   — too slow for interactive use
+#
+#   Docker / OCI image configs: 400 B – 2 KB  → 60–300 ms  ✓
+#   Manifest JSON files:        1 KB – 5 KB   → 150–750 ms ✓
+#   Actual layer tarballs:      MB scale       → minutes    ✗ (use host sha256sum)
+#
+#   For inputs consistently > ~5 KB, a precomputed-table variant is available at
+#   poc-precomputed-tables/sha256_tables.jq — it reduces band calls by 27% and
+#   saves ~16% at 50 KB, but adds ~79 ms of import overhead (loading 5.6 MB of
+#   JSON tables).  Break-even vs this file: ~5 KB binary input.
 
 include "b64";
 
@@ -100,10 +128,23 @@ def mask32: . % 4294967296;
 # Modular 32-bit addition
 def add32(b): (. + b) % 4294967296;
 
-# Right-rotate a 32-bit word by n positions.
+# Right-rotate a 32-bit word by n positions (general, public API).
 # The two halves are always disjoint, so their OR = their sum.
 def rotr32(n):
   (. / pow(2; n) | floor) + ((. % pow(2; n)) * pow(2; 32 - n));
+
+# Specialised rotations used by SHA-256 — inlined constants avoid pow(2;n)
+# calls, saving ~41% per rotation vs the generic form above.
+def _r2:  (. / 4         | floor) + (. % 4         * 1073741824);
+def _r6:  (. / 64        | floor) + (. % 64        * 67108864);
+def _r7:  (. / 128       | floor) + (. % 128       * 33554432);
+def _r11: (. / 2048      | floor) + (. % 2048      * 2097152);
+def _r13: (. / 8192      | floor) + (. % 8192      * 524288);
+def _r17: (. / 131072    | floor) + (. % 131072    * 32768);
+def _r18: (. / 262144    | floor) + (. % 262144    * 16384);
+def _r19: (. / 524288    | floor) + (. % 524288    * 8192);
+def _r22: (. / 4194304   | floor) + (. % 4194304   * 1024);
+def _r25: (. / 33554432  | floor) + (. % 33554432  * 128);
 
 # ── SHA-256 Boolean functions ──────────────────────────────────────────────
 
@@ -112,32 +153,34 @@ def rotr32(n):
 def Ch(e; f; g): band(e; f) + band(4294967295 - e; g);
 
 # Majority: output bit = majority of a, b, c.
-# bxor via arithmetic: p XOR q = p + q - 2*(p AND q)
+# Formula: a XOR ((a XOR b) AND (a XOR c)) — 4 band calls vs 5 in the
+# straightforward (a&b)^(a&c)^(b&c) expansion.
 def Maj(a; b; c):
-  band(a; b) as $ab | band(a; c) as $ac | band(b; c) as $bc |
-  ($ab + $ac - 2 * band($ab; $ac)) as $t |
-  $t + $bc - 2 * band($t; $bc);
+  band(a; b) as $ab | (a + b - 2*$ab) as $axb |
+  band(a; c) as $ac | (a + c - 2*$ac) as $axc |
+  band($axb; $axc) as $and |
+  band(a; $and) as $fab | a + $and - 2*$fab;
 
-# Uppercase Σ — used in the 64 compression rounds
+# Uppercase Σ — used in the 64 compression rounds.
 # Each is a 3-way XOR of rotations; computed as two sequential 2-way XORs.
 def Sigma0:
-  rotr32(2) as $r2 | rotr32(13) as $r13 | rotr32(22) as $r22 |
+  _r2 as $r2 | _r13 as $r13 | _r22 as $r22 |
   band($r2; $r13) as $ab | ($r2 + $r13 - 2*$ab) as $x |
   $x + $r22 - 2 * band($x; $r22);
 
 def Sigma1:
-  rotr32(6) as $r6 | rotr32(11) as $r11 | rotr32(25) as $r25 |
+  _r6 as $r6 | _r11 as $r11 | _r25 as $r25 |
   band($r6; $r11) as $ab | ($r6 + $r11 - 2*$ab) as $x |
   $x + $r25 - 2 * band($x; $r25);
 
-# Lowercase σ — used to extend the message schedule; SHR via integer divide
+# Lowercase σ — used to extend the message schedule; SHR via integer divide.
 def sigma0:
-  rotr32(7) as $r7 | rotr32(18) as $r18 | (. / 8 | floor) as $s |
+  _r7 as $r7 | _r18 as $r18 | (. / 8 | floor) as $s |
   band($r7; $r18) as $ab | ($r7 + $r18 - 2*$ab) as $x |
   $x + $s - 2 * band($x; $s);
 
 def sigma1:
-  rotr32(17) as $r17 | rotr32(19) as $r19 | (. / 1024 | floor) as $s |
+  _r17 as $r17 | _r19 as $r19 | (. / 1024 | floor) as $s |
   band($r17; $r19) as $ab | ($r17 + $r19 - 2*$ab) as $x |
   $x + $s - 2 * band($x; $s);
 
@@ -153,13 +196,11 @@ def make_schedule($block):
       ($block[$i * 4 + 2] * 256)     +
        $block[$i * 4 + 3]            ] |
   # W[16..63]: extend via σ1(W[i-2]) + W[i-7] + σ0(W[i-15]) + W[i-16]
+  # Single mask at the end: the sum of four 32-bit values is < 2^34 < 2^53.
   reduce range(16; 64) as $i (
     .;
     . as $w |
-    . + [ ($w[$i -  2] | sigma1) |
-          add32($w[$i -  7])     |
-          add32($w[$i - 15] | sigma0) |
-          add32($w[$i - 16]) ]
+    . + [(($w[$i-2]|sigma1) + $w[$i-7] + ($w[$i-15]|sigma0) + $w[$i-16]) % 4294967296]
   );
 
 # ── Compression function ───────────────────────────────────────────────────
@@ -170,8 +211,7 @@ def make_schedule($block):
 def compress($ws; $ks):
   reduce range(64) as $i (
     .;
-    .[0] as $a | .[1] as $b | .[2] as $c | .[3] as $d |
-    .[4] as $e | .[5] as $f | .[6] as $g | .[7] as $h |
+    . as [$a, $b, $c, $d, $e, $f, $g, $h] |
     # T1 = h + Σ1(e) + Ch(e,f,g) + K[i] + W[i]   (sum of ≤5 32-bit values < 2^53)
     (($h + ($e | Sigma1) + Ch($e; $f; $g) + $ws[$i] + $ks[$i]) % 4294967296) as $T1 |
     # T2 = Σ0(a) + Maj(a,b,c)
