@@ -1,0 +1,67 @@
+# SHA-256 of zero bytes (empty string, base64 = "")
+include "sha256"; sha256_of_b64
+""
+"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+# SHA-256 of 0x00 (one null byte, base64 = "AA==")
+include "sha256"; sha256_of_b64
+"AA=="
+"6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+
+# SHA-256 of 0x00 0x01 0x02 (base64 "AAEC", no padding)
+include "sha256"; sha256_of_b64
+"AAEC"
+"ae4b3280e56e2faf83f414a6e3dabe9d5fbe18976544c05fed121accb85b53fc"
+
+# SHA-256 of binary+text mix (original user-supplied test vector)
+include "sha256"; sha256_of_b64
+"AAECAwQFaGVsbAZ5ZWFoBw=="
+"d962d6cfbbbe0171f69a3948468e57288aa4abd23d416b626c6f0ce5db0ccbfc"
+
+# SHA-256 of 66 zero bytes (22 groups of "AAAA") — exercises the 2-block padding path
+include "sha256"; sha256_of_b64
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+"efbb03b7a7f6fd3c29391d4d0281e1830a85caadd831c3f04716faca4107a42e"
+
+# ── Real-world inputs ────────────────────────────────────────────────────────
+
+# Docker image config (compact JSON) — 451 bytes, 8 SHA-256 blocks
+include "sha256"; sha256_of_b64
+"eyJjb25maWciOnsiRW52IjpbIlBBVEg9L3Vzci9sb2NhbC9zYmluOi91c3IvbG9jYWwvYmluOi91c3Ivc2JpbjovdXNyL2Jpbjovc2JpbjovYmluIl0sIkVudHJ5cG9pbnQiOltdLCJDbWQiOlsiYmFzaCJdfSwiY3JlYXRlZCI6IjIwMjYtMDQtMDZUMDA6MDA6MDBaIiwiaGlzdG9yeSI6W3siY3JlYXRlZCI6IjIwMjYtMDQtMDZUMDA6MDA6MDBaIiwiY3JlYXRlZF9ieSI6IiMgZGViaWFuLnNoIC0tYXJjaCAnYW1kNjQnIG91dC8gJ3RyaXhpZScgJ0AxNzc1NDMzNjAwJyIsImNvbW1lbnQiOiJkZWJ1ZXJyZW90eXBlIDAuMTcifV0sInJvb3RmcyI6eyJ0eXBlIjoibGF5ZXJzIiwiZGlmZl9pZHMiOlsic2hhMjU2OjQ3ZTY3M2UzMjgxN2ZiYWY1MzYxOTM2NDU4N2ViZjZiMmQ0MWYzZmQ1ZTAyYjNmYTZhM2IyZmQwMWI0N2RkZmIiXX0sIm9zIjoibGludXgiLCJhcmNoaXRlY3R1cmUiOiJhbWQ2NCJ9Cg=="
+"8ce2894044f6727bb22b6a00b3fdb8c345f1e16f2bd8e512e2ecf05d6b8ddd5c"
+
+# Docker image config (pretty-printed JSON) — 396 bytes, 7 SHA-256 blocks
+include "sha256"; sha256_of_b64
+"ewoJImFyY2hpdGVjdHVyZSI6ICJhbWQ2NCIsCgkiY29uZmlnIjogewoJCSJDbWQiOiBbCgkJCSIvdHJ1ZSIKCQldCgl9LAoJImNyZWF0ZWQiOiAiMjAyMy0wMi0wMVQwNjo1MToxMVoiLAoJImhpc3RvcnkiOiBbCgkJewoJCQkiY3JlYXRlZCI6ICIyMDIzLTAyLTAxVDA2OjUxOjExWiIsCgkJCSJjcmVhdGVkX2J5IjogImh0dHBzOi8vZ2l0aHViLmNvbS90aWFub24vZG9ja2VyZmlsZXMvdHJlZS9tYXN0ZXIvdHJ1ZSIKCQl9CgldLAoJIm9zIjogImxpbnV4IiwKCSJyb290ZnMiOiB7CgkJImRpZmZfaWRzIjogWwoJCQkic2hhMjU2OjY1YjVhNDU5M2NjNjFkM2VhNmQzNTVmYjk3YzA0MzBkODIwZWUyMWFhODUzNWY1ZGU0NWU3NWMzMTk1NGI3NDMiCgkJXSwKCQkidHlwZSI6ICJsYXllcnMiCgl9Cn0K"
+"25be82253336f0b8c4347bc4ecbbcdc85d0e0f118ccf8dc2e119c0a47a0a486e"
+
+# Gzip binary data — 117 bytes, 2 SHA-256 blocks; exercises high-byte (>127) decode path
+include "sha256"; sha256_of_b64
+"H4sIAAAAAAACAyspKk1loDEwAAJTU1MwDQTotIGhuQmcDRE3MzM0YlAwYKADKC0uSSxSUGAYoaDe1ceNiZERzmdisGMA8SoYHMB8Byx6HBgsGGA6QDQrmiwyXQPl1cDlIUG9wYaflWEUDDgAAIAGdJIABAAA"
+"1c51fc286aa95d9413226599576bafa38490b1e292375c90de095855b64caea6"
+
+# ── Invalid input: sha256_of_b64 ────────────────────────────────────────────
+# %%FAIL only catches compile-time errors; use try-catch for runtime errors.
+# "try EXPR catch ." gives the raw error string — testable and informative.
+
+# sha256_of_b64 requires a string; a number fails at explode
+include "sha256"; try sha256_of_b64 catch .
+42
+"explode input must be a string"
+
+# sha256_of_b64 requires a string; null fails at explode
+include "sha256"; try sha256_of_b64 catch .
+null
+"explode input must be a string"
+
+# ── Invalid input: sha256_of_bytes ──────────────────────────────────────────
+
+# sha256_of_bytes requires an array; null is not iterable with .[]
+include "sha256"; try sha256_of_bytes catch .
+null
+"Cannot iterate over null (null)"
+
+# sha256_of_bytes requires an array; a string is not iterable with .[]
+include "sha256"; try sha256_of_bytes catch .
+"hello"
+"Cannot iterate over string (\"hello\")"
