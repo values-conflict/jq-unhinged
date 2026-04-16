@@ -15,26 +15,26 @@
 #
 #     Input (binary)   Base64 chars    Wall time    Blocks
 #     ──────────────   ────────────    ─────────    ──────
-#          1 KB            1 368         ~150 ms       16
-#         10 KB           13 656        ~1.4  s       160
-#         50 KB           68 268        ~6.8  s       800
+#         1 KiB            1 368         ~150 ms       16
+#        10 KiB           13 656        ~1.4  s       160
+#        50 KiB           68 268        ~6.8  s       800
 #
-#   Rule of thumb: ~150 ms per KB of binary input.
+#   Rule of thumb: ~150 ms per KiB of binary input.
 #
 #   Practical thresholds for the intended use case (manifest / config validation):
-#     < 200 ms  →  ≤ 1.3 KB  — "feels instant"
-#     < 1 s     →  ≤ 6.5 KB  — acceptable for scripts
-#     < 3 s     →  ≤ 20 KB   — borderline for automation
-#     > 5 s     →  ≥ 33 KB   — too slow for interactive use
+#     < 200 ms  →  ≤ 1.3 KiB — "feels instant"
+#     < 1 s     →  ≤ 6.5 KiB — acceptable for scripts
+#     < 3 s     →  ≤ 20 KiB  — borderline for automation
+#     > 5 s     →  ≥ 33 KiB  — too slow for interactive use
 #
-#   Docker / OCI image configs: 400 B – 2 KB  → 60–300 ms  ✓
-#   Manifest JSON files:        1 KB – 5 KB   → 150–750 ms ✓
-#   Actual layer tarballs:      MB scale       → minutes    ✗ (use host sha256sum)
+#   Docker / OCI image configs: 400 B – 2 KiB → 60–300 ms  ✓
+#   Manifest JSON files:        1 KiB – 5 KiB → 150–750 ms ✓
+#   Actual layer tarballs:      MiB scale      → minutes    ✗ (use host sha256sum)
 #
-#   For inputs consistently > ~5 KB, a precomputed-table variant is available at
+#   For inputs consistently > ~5 KiB, a precomputed-table variant is available at
 #   poc-precomputed-tables/sha256_tables.jq — it reduces band calls by 27% and
-#   saves ~16% at 50 KB, but adds ~79 ms of import overhead (loading 5.6 MB of
-#   JSON tables).  Break-even vs this file: ~5 KB binary input.
+#   saves ~16% at 50 KiB, but adds ~79 ms of import overhead (loading 5.3 MiB of
+#   JSON tables).  Break-even vs this file: ~5 KiB binary input.
 
 include "bits";
 include "b64";

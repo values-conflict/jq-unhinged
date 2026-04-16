@@ -32,23 +32,23 @@
 #
 #     Input (binary)   Base64 chars    Blocks   Wall time    vs sha256.jq
 #     ──────────────   ────────────    ──────   ─────────    ────────────
-#          1 KB            1 368            8     ~207 ms        ×1.41
-#         10 KB           13 656           80     ~1.84 s        ×1.36
-#         50 KB           68 268          400     ~9.2  s        ×1.36
+#         1 KiB            1 368            8     ~207 ms        ×1.41
+#        10 KiB           13 656           80     ~1.84 s        ×1.36
+#        50 KiB           68 268          400     ~9.2  s        ×1.36
 #
-#   Rule of thumb: ~207 ms per KB of binary input (~1.4× sha256.jq).
+#   Rule of thumb: ~207 ms per KiB of binary input (~1.4× sha256.jq).
 #   The ratio is lower than naive band-count ratios predict because b64 decode
 #   overhead is shared and constant across both algorithms.
 #
 #   Practical thresholds for the intended use case (manifest / config validation):
-#     < 200 ms  →  ≤ ~1 KB   — "feels instant"
-#     < 1 s     →  ≤ ~5 KB   — acceptable for scripts
-#     < 3 s     →  ≤ ~14 KB  — borderline for automation
-#     > 5 s     →  ≥ ~24 KB  — too slow for interactive use
+#     < 200 ms  →  ≤ ~1 KiB  — "feels instant"
+#     < 1 s     →  ≤ ~5 KiB  — acceptable for scripts
+#     < 3 s     →  ≤ ~14 KiB — borderline for automation
+#     > 5 s     →  ≥ ~24 KiB — too slow for interactive use
 #
-#   Docker / OCI image configs: 400 B – 2 KB  →  ~85–415 ms  ✓
-#   Manifest JSON files:        1 KB – 5 KB   →  ~210 ms–1 s ✓
-#   Actual layer tarballs:      MB scale       →  minutes     ✗ (use host sha512sum)
+#   Docker / OCI image configs: 400 B – 2 KiB →  ~85–415 ms  ✓
+#   Manifest JSON files:        1 KiB – 5 KiB →  ~210 ms–1 s ✓
+#   Actual layer tarballs:      MiB scale      →  minutes     ✗ (use host sha512sum)
 
 include "bits";
 include "b64";
