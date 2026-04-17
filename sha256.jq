@@ -3,7 +3,6 @@
 # Public entry points:
 #
 #   sha256_of_b64         — input (.): base64 string → 64-char lowercase hex digest
-#   sha256_of_bytes       — input (.): array of byte integers (0–255) → hex digest
 #   sha256_from_stream(gen) — gen: any generator of byte integers → hex digest
 #
 # Base64 decoding is handled by b64.jq (included below).
@@ -235,8 +234,3 @@ def sha256_from_stream(gen):
 # Output: 64-character lowercase hex SHA-256 digest of the decoded bytes
 def sha256_of_b64:
   sha256_from_stream(b64_stream_decode);
-
-# Input (.): array of byte integers (0–255)
-# Output: 64-character lowercase hex SHA-256 digest
-def sha256_of_bytes:
-  sha256_from_stream(.[]);

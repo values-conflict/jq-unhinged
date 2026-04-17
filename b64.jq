@@ -3,7 +3,6 @@
 # Public entry points:
 #
 #   b64_stream_decode  — input (.): base64 string → generator of byte integers
-#   b64_decode         — input (.): base64 string → array of byte integers
 #
 # Bytes are represented as plain integers (0–255), not jq strings, so arbitrary
 # binary data (bytes > 127) is handled correctly with no UTF-8 mangling.
@@ -60,8 +59,3 @@ def b64_stream_decode:
     (($v[2] % 4) * 64 + $v[3])
   end;
 
-# ── Collecting decoder ─────────────────────────────────────────────────────
-
-# Input (.): base64-encoded string
-# Output: array of decoded byte integers (0–255)
-def b64_decode: [ b64_stream_decode ];

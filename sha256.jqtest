@@ -54,14 +54,3 @@ include "sha256"; try sha256_of_b64 catch .
 null
 "explode input must be a string"
 
-# ── Invalid input: sha256_of_bytes ──────────────────────────────────────────
-
-# sha256_of_bytes requires an array; null is not iterable with .[]
-include "sha256"; try sha256_of_bytes catch .
-null
-"Cannot iterate over null (null)"
-
-# sha256_of_bytes requires an array; a string is not iterable with .[]
-include "sha256"; try sha256_of_bytes catch .
-"hello"
-"Cannot iterate over string (\"hello\")"

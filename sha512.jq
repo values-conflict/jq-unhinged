@@ -3,7 +3,6 @@
 # Public entry points:
 #
 #   sha512_of_b64         — input (.): base64 string → 128-char lowercase hex digest
-#   sha512_of_bytes       — input (.): array of byte integers (0–255) → hex digest
 #   sha512_from_stream(gen) — gen: any generator of byte integers → hex digest
 #
 # Base64 decoding is handled by b64.jq (included below).
@@ -341,8 +340,3 @@ def sha512_from_stream(gen):
 # Output: 128-character lowercase hex SHA-512 digest of the decoded bytes
 def sha512_of_b64:
   sha512_from_stream(b64_stream_decode);
-
-# Input (.): array of byte integers (0–255)
-# Output: 128-character lowercase hex SHA-512 digest
-def sha512_of_bytes:
-  sha512_from_stream(.[]);

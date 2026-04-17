@@ -53,14 +53,3 @@ include "sha512"; try sha512_of_b64 catch .
 null
 "explode input must be a string"
 
-# ── Invalid input: sha512_of_bytes ──────────────────────────────────────────
-
-# sha512_of_bytes requires an array; null is not iterable with .[]
-include "sha512"; try sha512_of_bytes catch .
-null
-"Cannot iterate over null (null)"
-
-# sha512_of_bytes requires an array; a string is not iterable with .[]
-include "sha512"; try sha512_of_bytes catch .
-"hello"
-"Cannot iterate over string (\"hello\")"
