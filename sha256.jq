@@ -61,7 +61,10 @@ def sha256_K: [
 ];
 
 # ── Initial hash values H0[0..7] ───────────────────────────────────────────
-# First 32 bits of the fractional parts of the square roots of primes 2..19
+# FIPS 180-4 §5.3.3: "These words were obtained by taking the first thirty-two
+# bits of the fractional parts of the square roots of the first eight prime
+# numbers."  sha512_H0 uses the same mathematical source extended to 64 bits:
+# sha512_H0[i][0] (the hi-half of each [hi, lo] pair) equals sha256_H0[i].
 
 def sha256_H0: [
   1779033703, 3144134277, 1013904242, 2773480762,

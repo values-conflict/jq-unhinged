@@ -81,8 +81,10 @@ def sha512_K: [
 ];
 
 # ── Initial hash values H0[0..7] ──────────────────────────────────────────────
-# First 64 bits of the fractional parts of the square roots of primes 2..19.
-# H0[i] hi-halves match sha256_H0 exactly (same source, more bits).
+# FIPS 180-4 §6.4: the first 64 bits of the fractional parts of the square
+# roots of the first eight prime numbers.  sha512_H0[i][0] (the hi-half of
+# each [hi, lo] pair) equals sha256_H0[i] exactly — SHA-512 extends each
+# 32-bit SHA-256 value to 64 bits from the same mathematical source.
 
 def sha512_H0: [
   [1779033703, 4089235720],
