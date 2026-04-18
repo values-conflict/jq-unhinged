@@ -30,10 +30,11 @@
 #   Manifest JSON files:        1 KiB – 5 KiB → 150–750 ms ✓
 #   Actual layer tarballs:      MiB scale      → minutes    ✗ (use host sha256sum)
 #
-#   For inputs consistently > ~5 KiB, a precomputed-table variant is available at
-#   poc-precomputed-tables/sha256_tables.jq — it reduces band calls by 27% and
-#   saves ~16% at 50 KiB, but adds ~79 ms of import overhead (loading 5.3 MiB of
-#   JSON tables).  Break-even vs this file: ~5 KiB binary input.
+#   Perf note: σ₀/σ₁/Σ₀/Σ₁ are GF(2)-linear (XOR+rotate only, no AND), enabling
+#   precomputed half-word lookups: f(x) = t_hi[x/65536|0] ⊕ t_lo[x%65536].
+#   Eight 65536-entry tables reduce band calls by ~27%, yielding ~+16% throughput
+#   at 50 KiB.  The drawback: the tables weigh ≈ 5.3 MiB of JSON and add ~79 ms
+#   of per-invocation load overhead, making them a net loss below ~5 KiB input.
 
 include "bits";
 include "b64";
