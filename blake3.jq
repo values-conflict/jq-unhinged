@@ -368,3 +368,164 @@ def blake3_of_b64: blake3_from_stream(b64_stream_decode);
 # Input (.): base64-encoded string
 # Output: 2*nbytes-character lowercase hex BLAKE3 digest (variable length, XOF)
 def blake3_of_b64(nbytes): blake3_from_stream(b64_stream_decode; nbytes);
+
+# ── Merkle tree preservation and partial verification ─────────────────────────
+#
+# BLAKE3's binary Merkle tree allows verifying that a specific 1024-byte chunk
+# of the original input is correct without re-hashing the whole input.
+#
+# ── Generating a tree object ──────────────────────────────────────────────────
+#
+#   include "blake3";
+#   "<base64-of-full-input>" | blake3_from_stream_with_tree(b64_stream_decode)
+#
+# Output: { "hash": "64-char-hex", "chunk_cvs": ["64-char-hex", …] }
+#
+# To immediately extract the proof for chunk 0 from the same pipeline:
+#
+#   include "blake3";
+#   "<base64-of-full-input>"
+#   | blake3_from_stream_with_tree(b64_stream_decode)
+#   | { hash, proof: (.chunk_cvs | blake3_extract_proof(0)) }
+#
+# ── Workflow ──────────────────────────────────────────────────────────────────
+#
+#   1. blake3_from_stream_with_tree(gen) — hash the full input; emit hash + CVs
+#   2. Store .chunk_cvs alongside each chunk's raw bytes (e.g. in a manifest)
+#   3. blake3_extract_proof(.chunk_cvs; i) — derive the proof path for chunk i
+#   4. blake3_verify_proof(chunk_bytes; i; proof; root_hash) — verify later
+#
+# Proof format: [{cv: "hex", side: "left"|"right"}, …]
+# Each entry is a sibling CV at successive tree levels, bottom-up.
+# "left"/"right" indicates whether the sibling is to the left or right of the
+# path node at that level, determining the merging order.
+
+# ── Helpers for hex ↔ word conversion (needed only by the tree functions) ─────
+
+# Single hex character → nibble value (0–15)
+def _blake3_nibble: "0123456789abcdef" | index(.);
+
+# Two hex chars → byte integer (0–255)
+def _blake3_h2b: . as $h | ($h[0:1] | _blake3_nibble) * 16 + ($h[1:2] | _blake3_nibble);
+
+# Eight hex chars encoding a little-endian 32-bit word → integer
+def _blake3_h8_to_word:
+  . as $h |
+  ($h[0:2] | _blake3_h2b)            +
+  ($h[2:4] | _blake3_h2b) * 256      +
+  ($h[4:6] | _blake3_h2b) * 65536    +
+  ($h[6:8] | _blake3_h2b) * 16777216;
+
+# 64-char hex CV string → 8-word little-endian array
+def blake3_cv_hex_to_words: . as $h | [ range(8) as $i | $h[$i*8 : $i*8+8] | _blake3_h8_to_word ];
+
+# 8-word little-endian array → 64-char hex CV string
+def blake3_cv_words_to_hex:
+  ("0123456789abcdef" | explode) as $hex |
+  [ .[] | blake3_word_to_le_bytes | .[] ] |
+  [ .[] as $b | [$hex[$b / 16 | floor], $hex[$b % 16]] | implode ] |
+  join("");
+
+# Parent CV as 8-word array (no ROOT flag; used internally during proof walks).
+def _blake3_parent_cv_words($l; $r):
+  blake3_compress(blake3_IV; $l + $r; 0; 0; 64; BLAKE3_PARENT) | .[0:8];
+
+# ── blake3_from_stream_with_tree ──────────────────────────────────────────────
+#
+# Like blake3_from_stream but also returns the chunk chaining values so that
+# Merkle proofs can be constructed for any individual chunk later.
+#
+# Output: { hash: "64-char-hex", chunk_cvs: ["64-char-hex", …] }
+#   hash       — the standard BLAKE3 digest (same as blake3_from_stream)
+#   chunk_cvs  — one 64-char hex CV per 1024-byte chunk, in order
+#
+# Store chunk_cvs[i] alongside chunk i's raw bytes; that pair is everything
+# needed to verify the chunk against a known root hash.
+
+def blake3_from_stream_with_tree(gen):
+  [gen] as $bytes |
+  ($bytes | length) as $total |
+  (([$total, 1] | max) + 1023) / 1024 | floor as $nchunks |
+  [ range($nchunks) as $ci |
+    blake3_chunk_output($bytes[$ci * 1024 : ($ci + 1) * 1024]; $ci) ] as $outputs |
+  blake3_tree_reduce($outputs) as $root |
+  { hash:      blake3_root_hex($root; 32),
+    chunk_cvs: [ $outputs[] | blake3_output_cv(.) | blake3_cv_words_to_hex ] };
+
+# ── blake3_extract_proof ──────────────────────────────────────────────────────
+#
+# Extract a Merkle proof for the chunk at position $index.
+#
+# Input (.): the chunk_cvs array from blake3_from_stream_with_tree.
+# Output: [{cv: "hex", side: "left"|"right"}, …]  (empty for single-chunk inputs)
+#
+# Implementation: pairwise-merge the CV array level by level (mirroring
+# blake3_tree_reduce), collecting the sibling at each level.  Recursion depth
+# is ⌈log₂(chunks)⌉ ≤ 20 for inputs up to 1 GiB — trivially bounded.
+
+def blake3_extract_proof($index):
+  . as $cvs |
+  ($cvs | length) as $n |
+  if $n <= 1 then []
+  else
+    ($index % 2) as $pos |
+    ($index / 2 | floor) as $parent_idx |
+    # Sibling at this level (null when an odd node passes through unmerged)
+    (if $pos == 0 then
+       if $index + 1 < $n then { cv: $cvs[$index + 1], side: "right" }
+       else null
+       end
+     else { cv: $cvs[$index - 1], side: "left" }
+     end) as $sibling |
+    # Merge pairs to build the next level's CV array
+    [ range(0; $n; 2) as $i |
+      if $i + 1 < $n
+      then _blake3_parent_cv_words($cvs[$i] | blake3_cv_hex_to_words;
+                                   $cvs[$i+1] | blake3_cv_hex_to_words) |
+           blake3_cv_words_to_hex
+      else $cvs[$i]
+      end ] |
+    blake3_extract_proof($parent_idx) as $rest |
+    if $sibling then [$sibling] + $rest else $rest end
+  end;
+
+# ── blake3_verify_proof ───────────────────────────────────────────────────────
+#
+# Verify that $chunk_bytes is the content of chunk $index in an input whose
+# BLAKE3 root hash is $root_hash (a 64-char hex string).
+#
+# $proof: the array returned by blake3_extract_proof for the same $index.
+# Returns true if the chunk is authentic, false otherwise.
+#
+# The final step re-runs compression with BLAKE3_ROOT — mandatory because
+# the root hash differs from the intermediate chaining value (ROOT changes
+# the flags word, altering all seven mixing rounds).
+
+def blake3_verify_proof($chunk_bytes; $index; $proof; $root_hash):
+  blake3_chunk_output($chunk_bytes; $index) as $chunk_out |
+  blake3_output_cv($chunk_out) as $cv0 |
+  ($proof | length) as $plen |
+  if $plen == 0 then
+    # Single-chunk input: the chunk IS the root; verify by rehashing with ROOT.
+    blake3_root_hex($chunk_out; 32) == $root_hash
+  else
+    # Multi-chunk: walk all proof steps except the last using plain PARENT.
+    reduce range($plen - 1) as $si (
+      { words: $cv0, index: $index };
+      ($proof[$si]) as $sib |
+      ($sib.cv | blake3_cv_hex_to_words) as $sib_words |
+      { words: (if $sib.side == "right"
+                then _blake3_parent_cv_words(.words; $sib_words)
+                else _blake3_parent_cv_words($sib_words; .words)
+                end),
+        index: (.index / 2 | floor) }
+    ) as $pre_root |
+    # Last proof step: merge with ROOT flag to produce the final hash.
+    ($proof[$plen - 1]) as $last |
+    ($last.cv | blake3_cv_hex_to_words) as $last_words |
+    (if $last.side == "right"
+     then blake3_compress(blake3_IV; $pre_root.words + $last_words; 0; 0; 64; BLAKE3_PARENT + BLAKE3_ROOT)
+     else blake3_compress(blake3_IV; $last_words + $pre_root.words; 0; 0; 64; BLAKE3_PARENT + BLAKE3_ROOT)
+     end) |
+    .[0:8] | blake3_cv_words_to_hex == $root_hash
+  end;
