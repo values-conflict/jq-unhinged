@@ -39,7 +39,8 @@ include "bits";
 include "b64";
 
 # ── SHA-256 round constants K[0..63] ──────────────────────────────────────
-# First 32 bits of the fractional parts of the cube roots of primes 2..311
+# FIPS 180-4 §4.2.2: "These words represent the first thirty-two bits of the
+# fractional parts of the cube roots of the first sixty-four prime numbers."
 
 def sha256_K: [
   1116352408, 1899447441, 3049323471, 3921009573,
@@ -99,6 +100,13 @@ def _r22: (. / 4194304   | floor) + (. % 4194304   * 1024);
 def _r25: (. / 33554432  | floor) + (. % 33554432  * 128);
 
 # ── SHA-256 Boolean functions ──────────────────────────────────────────────
+# FIPS 180-4 §4.1.2:
+#   Ch( x, y, z)  = (x ∧ y) ⊕ (¬x ∧ z)
+#   Maj( x, y, z) = (x ∧ y) ⊕ (x ∧ z) ⊕ (y ∧ z)
+#   Σ₀²⁵⁶(x)      = ROTR²(x)  ⊕ ROTR¹³(x) ⊕ ROTR²²(x)
+#   Σ₁²⁵⁶(x)      = ROTR⁶(x)  ⊕ ROTR¹¹(x) ⊕ ROTR²⁵(x)
+#   σ₀²⁵⁶(x)      = ROTR⁷(x)  ⊕ ROTR¹⁸(x) ⊕ SHR³(x)
+#   σ₁²⁵⁶(x)      = ROTR¹⁷(x) ⊕ ROTR¹⁹(x) ⊕ SHR¹⁰(x)
 
 # Choice: for each bit, select from f (e=1) or g (e=0).
 # The two AND terms are always disjoint, so XOR = plain addition.
@@ -137,6 +145,9 @@ def sigma1:
   $x + $s - 2 * band($x; $s);
 
 # ── Message schedule ───────────────────────────────────────────────────────
+# FIPS 180-4 §6.2.2 step 1: "Prepare the message schedule, {Wt}:"
+#   Wt = Mt^(i)                                                    0 ≤ t ≤ 15
+#   Wt = σ₁²⁵⁶(W_{t-2}) + W_{t-7} + σ₀²⁵⁶(W_{t-15}) + W_{t-16}  16 ≤ t ≤ 63
 
 # Callers always have the block as a derived value, never as their natural .
 # so this takes it as a $arg rather than via pipe.
@@ -156,6 +167,11 @@ def make_schedule($block):
   );
 
 # ── Compression function ───────────────────────────────────────────────────
+# FIPS 180-4 §6.2.2 steps 3–4: for t = 0 to 63:
+#   T₁ = h + Σ₁²⁵⁶(e) + Ch(e,f,g) + Kt²⁵⁶ + Wt
+#   T₂ = Σ₀²⁵⁶(a) + Maj(a,b,c)
+#   h=g; g=f; f=e; e=d+T₁; d=c; c=b; b=a; a=T₁+T₂          (all mod 2³²)
+# Then: H₀^(i) = a+H₀^(i-1), …, H₇^(i) = h+H₇^(i-1)        (all mod 2³²)
 
 # Input (.): [a,b,c,d,e,f,g,h] working variables (initialised from hash state)
 # Args: w — 64-word schedule, k — 64 round constants
@@ -182,6 +198,12 @@ def process_block($block; $h; $k):
   [ range(8) as $i | ($h[$i] + $comp[$i]) % 4294967296 ];
 
 # ── SHA-256 finalisation padding ───────────────────────────────────────────
+# FIPS 180-4 §5.1.1: "Suppose that the length of the message, M, is l bits.
+# Append the bit '1' to the end of the message, followed by k zero bits, where
+# k is the smallest, non-negative solution to the equation
+#   l + 1 + k ≡ 448 (mod 512)
+# Then append the 64-bit block that is equal to the number l expressed using a
+# binary representation."
 
 # Input (.): remaining (unprocessed) byte buffer after streaming
 # Arg total_len: TOTAL original message length in bytes (for the length suffix)

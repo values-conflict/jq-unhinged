@@ -53,7 +53,8 @@ include "bits";
 include "b64";
 
 # ── SHA-512 round constants K[0..79] ─────────────────────────────────────────
-# First 64 bits of the fractional parts of the cube roots of primes 2..409.
+# FIPS 180-4 §4.2.3: "These words represent the first sixty-four bits of the
+# fractional parts of the cube roots of the first eighty prime numbers."
 # Each constant is [hi, lo] (two 32-bit halves of the 64-bit value).
 # K[0..63] hi-halves match sha256_K exactly (same mathematical source, more bits).
 
@@ -81,10 +82,11 @@ def sha512_K: [
 ];
 
 # ── Initial hash values H0[0..7] ──────────────────────────────────────────────
-# FIPS 180-4 §6.4: the first 64 bits of the fractional parts of the square
-# roots of the first eight prime numbers.  sha512_H0[i][0] (the hi-half of
-# each [hi, lo] pair) equals sha256_H0[i] exactly — SHA-512 extends each
-# 32-bit SHA-256 value to 64 bits from the same mathematical source.
+# FIPS 180-4 §5.3.5: "These words were obtained by taking the first sixty-four
+# bits of the fractional parts of the square roots of the first eight prime
+# numbers."  sha512_H0[i][0] (the hi-half of each [hi, lo] pair) equals
+# sha256_H0[i] exactly — SHA-512 extends each 32-bit SHA-256 value to 64 bits
+# from the same mathematical source (FIPS 180-4 §5.3.3).
 
 def sha512_H0: [
   [1779033703, 4089235720],
@@ -196,6 +198,13 @@ def _s64_6:  .[0] as $h | .[1] as $l |            # SHR64(6)
     ($l/64|floor)        + ($h%64        * 67108864) ];
 
 # ── SHA-512 Boolean functions ─────────────────────────────────────────────────
+# FIPS 180-4 §4.1.3 (same form as §4.1.2; operating on 64-bit words):
+#   Ch( x, y, z)  = (x ∧ y) ⊕ (¬x ∧ z)
+#   Maj( x, y, z) = (x ∧ y) ⊕ (x ∧ z) ⊕ (y ∧ z)
+#   Σ₀⁵¹²(x)      = ROTR²⁸(x) ⊕ ROTR³⁴(x) ⊕ ROTR³⁹(x)
+#   Σ₁⁵¹²(x)      = ROTR¹⁴(x) ⊕ ROTR¹⁸(x) ⊕ ROTR⁴¹(x)
+#   σ₀⁵¹²(x)      = ROTR¹(x)  ⊕ ROTR⁸(x)  ⊕ SHR⁷(x)
+#   σ₁⁵¹²(x)      = ROTR¹⁹(x) ⊕ ROTR⁶¹(x) ⊕ SHR⁶(x)
 
 # Choice: for each bit, select from f (e=1) or g (e=0).
 # The two AND terms are always disjoint (e AND NOT(e) = 0), so XOR = addition.
@@ -244,6 +253,9 @@ def sigma1_64:
   bxor64($x; $s6);
 
 # ── Message schedule ──────────────────────────────────────────────────────────
+# FIPS 180-4 §6.4.2 step 1: "Prepare the message schedule, {Wt}:"
+#   Wt = Mt^(i)                                                    0 ≤ t ≤ 15
+#   Wt = σ₁⁵¹²(W_{t-2}) + W_{t-7} + σ₀⁵¹²(W_{t-15}) + W_{t-16}  16 ≤ t ≤ 79
 
 # Callers always have the block as a derived value, never as their natural .
 # so this takes it as a $arg rather than via pipe.
@@ -262,6 +274,11 @@ def make_schedule512($block):
   );
 
 # ── Compression function ──────────────────────────────────────────────────────
+# FIPS 180-4 §6.4.2 steps 3–4: for t = 0 to 79:
+#   T₁ = h + Σ₁⁵¹²(e) + Ch(e,f,g) + Kt⁵¹² + Wt
+#   T₂ = Σ₀⁵¹²(a) + Maj(a,b,c)
+#   h=g; g=f; f=e; e=d+T₁; d=c; c=b; b=a; a=T₁+T₂          (all mod 2⁶⁴)
+# Then: H₀^(i) = a+H₀^(i-1), …, H₇^(i) = h+H₇^(i-1)        (all mod 2⁶⁴)
 
 # Input (.): [a,b,c,d,e,f,g,h] working variables (each a [hi,lo] pair)
 # Args: ws — 80-word schedule, ks — 80 round constants (both as [hi,lo] pairs)
@@ -284,6 +301,12 @@ def process_block512($block; $h; $k):
   [ range(8) as $i | add64($h[$i]; $comp[$i]) ];
 
 # ── SHA-512 finalisation padding ──────────────────────────────────────────────
+# FIPS 180-4 §5.1.2: "Suppose that the length of the message, M, is l bits.
+# Append the bit '1' to the end of the message, followed by k zero bits, where
+# k is the smallest, non-negative solution to the equation
+#   l + 1 + k ≡ 896 (mod 1024)
+# Then append the 128-bit block that is equal to the number l expressed using a
+# binary representation."
 
 # Input (.): remaining (unprocessed) byte buffer after streaming
 # Arg total_len: TOTAL original message length in bytes (for the length suffix)
