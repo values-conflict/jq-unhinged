@@ -510,7 +510,7 @@ def blake3_verify_proof($chunk_bytes; $index; $proof; $root_hash):
     blake3_root_hex($chunk_out; 32) == $root_hash
   else
     # Multi-chunk: walk all proof steps except the last using plain PARENT.
-    reduce range($plen - 1) as $si (
+    (reduce range($plen - 1) as $si (
       { words: $cv0, index: $index };
       ($proof[$si]) as $sib |
       ($sib.cv | blake3_cv_hex_to_words) as $sib_words |
@@ -519,7 +519,7 @@ def blake3_verify_proof($chunk_bytes; $index; $proof; $root_hash):
                 else _blake3_parent_cv_words($sib_words; .words)
                 end),
         index: (.index / 2 | floor) }
-    ) as $pre_root |
+    )) as $pre_root |
     # Last proof step: merge with ROOT flag to produce the final hash.
     ($proof[$plen - 1]) as $last |
     ($last.cv | blake3_cv_hex_to_words) as $last_words |
