@@ -1,0 +1,110 @@
+# jq-b64
+
+Pure-`jq` streaming base64 decoder and SHA-256/SHA-512/BLAKE3 implementations.
+No shell utilities, no external dependencies -- just `jq`. 🥳
+
+The base64 decoder emits raw byte integers (0–255) as a generator, making it safe for arbitrary binary data.
+Unlike `jq`'s built-in `@base64d` -- which decodes to a UTF-8 string and silently mangles bytes above 127 -- this handles the full 0–255 range correctly. 😏
+
+All files are designed to be `include`d in your own `jq` programs.
+Point `jq` at the directory containing these files with `-L /path/to/dir`, or `-L .` when running from the repo root.
+
+---
+
+## [`b64.jq`](b64.jq)
+
+### `b64_stream_decode`
+
+```console
+$ jq -r -L . 'include "b64"; [b64_stream_decode] | implode' <<< '"SGVsbG8sIHdvcmxkIQ=="'
+Hello, world!
+$ # important note on this example: jq's "implode" expects an array of unicode codepoints and this returns an array of bytes, so this will lead to mojibake like "café" -> "cafÃ©"
+```
+
+---
+
+## [`sha256.jq`](sha256.jq)
+
+### `sha256_of_b64`
+
+```console
+$ jq -r -L . 'include "sha256"; sha256_of_b64' <<< '"SGVsbG8sIHdvcmxkIQ=="'
+315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3
+$ base64 -d <<< 'SGVsbG8sIHdvcmxkIQ==' | sha256sum
+315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3  -
+```
+
+### `sha256_from_stream(gen)`
+
+```console
+$ jq -rn -L . 'include "b64"; include "sha256"; sha256_from_stream("SGVsbG8sIHdvcmxkIQ==" | b64_stream_decode)'
+315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3
+$ base64 -d <<< 'SGVsbG8sIHdvcmxkIQ==' | sha256sum
+315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3  -
+
+$ jq -rn -L . 'include "sha256"; "hell yeah 🤘\n" | @base64 | sha256_of_b64'
+2c77828134a0c3b2f8786d1e961585db6a6a746ac3af03ab363c5c1cf3af8ec9
+$ sha256sum <<< 'hell yeah 🤘'
+2c77828134a0c3b2f8786d1e961585db6a6a746ac3af03ab363c5c1cf3af8ec9  -
+```
+
+---
+
+## [`sha512.jq`](sha512.jq)
+
+### `sha512_of_b64`
+
+```console
+$ jq -r -L . 'include "sha512"; sha512_of_b64' <<< '"SGVsbG8sIHdvcmxkIQ=="'
+c1527cd893c124773d811911970c8fe6e857d6df5dc9226bd8a160614c0cd963a4ddea2b94bb7d36021ef9d865d5cea294a82dd49a0bb269f51f6e7a57f79421
+$ base64 -d <<< 'SGVsbG8sIHdvcmxkIQ==' | sha512sum
+c1527cd893c124773d811911970c8fe6e857d6df5dc9226bd8a160614c0cd963a4ddea2b94bb7d36021ef9d865d5cea294a82dd49a0bb269f51f6e7a57f79421  -
+```
+
+### `sha512_from_stream(gen)`
+
+```console
+$ jq -rn -L . 'include "b64"; include "sha512"; sha512_from_stream("SGVsbG8sIHdvcmxkIQ==" | b64_stream_decode)'
+c1527cd893c124773d811911970c8fe6e857d6df5dc9226bd8a160614c0cd963a4ddea2b94bb7d36021ef9d865d5cea294a82dd49a0bb269f51f6e7a57f79421
+$ base64 -d <<< 'SGVsbG8sIHdvcmxkIQ==' | sha512sum
+c1527cd893c124773d811911970c8fe6e857d6df5dc9226bd8a160614c0cd963a4ddea2b94bb7d36021ef9d865d5cea294a82dd49a0bb269f51f6e7a57f79421  -
+```
+
+---
+
+## [`blake3.jq`](blake3.jq)
+
+BLAKE3 uses a binary Merkle tree over 1024-byte chunks and supports variable-length output (XOF).
+For advanced use, `blake3_from_stream_with_tree`, `blake3_extract_proof`, and `blake3_verify_proof` expose the Merkle tree structure and enable partial verification of individual chunks without re-hashing the full input; see [`blake3.jq`](blake3.jq) for documentation and usage examples.
+
+### `blake3_of_b64`
+
+```console
+$ jq -r -L . 'include "blake3"; blake3_of_b64' <<< '"SGVsbG8sIHdvcmxkIQ=="'
+ede5c0b10f2ec4979c69b52f61e42ff5b413519ce09be0f14d098dcfe5f6f98d
+$ base64 -d <<< 'SGVsbG8sIHdvcmxkIQ==' | b3sum --no-names
+ede5c0b10f2ec4979c69b52f61e42ff5b413519ce09be0f14d098dcfe5f6f98d
+```
+
+### `blake3_of_b64(nbytes)` — variable-length XOF output
+
+```console
+$ jq -r -L . 'include "blake3"; blake3_of_b64(64)' <<< '"SGVsbG8sIHdvcmxkIQ=="'
+ede5c0b10f2ec4979c69b52f61e42ff5b413519ce09be0f14d098dcfe5f6f98d7d46337812f87327ad7108fbaa955f009afa495ca8c05c33eb050002ac9b99bc
+$ base64 -d <<< 'SGVsbG8sIHdvcmxkIQ==' | b3sum --no-names --length 64
+ede5c0b10f2ec4979c69b52f61e42ff5b413519ce09be0f14d098dcfe5f6f98d7d46337812f87327ad7108fbaa955f009afa495ca8c05c33eb050002ac9b99bc
+```
+
+### `blake3_from_stream(gen)`
+
+```console
+$ jq -rn -L . 'include "b64"; include "blake3"; blake3_from_stream("SGVsbG8sIHdvcmxkIQ==" | b64_stream_decode)'
+ede5c0b10f2ec4979c69b52f61e42ff5b413519ce09be0f14d098dcfe5f6f98d
+```
+
+---
+
+## Authorship
+
+This code was written using "claude my eyes right out" as an implementation vehicle, under close direction from Tianon at every step -- including algorithm choices, `jq` idioms, and design decisions.
+The creative direction and domain expertise throughout are Tianon's.
