@@ -305,16 +305,16 @@ def blake3_parent_output($lcv; $rcv):
 # Recursion depth ≤ ⌈log₂(chunks)⌉ ≤ 20 for inputs up to 1 GiB, so stack
 # depth is trivially bounded.  The tail-recursive call is TCO-eligible in jq.
 
-def blake3_tree_reduce($outputs):
-  if ($outputs | length) == 1 then $outputs[0]
+def blake3_tree_reduce:
+  if length == 1 then .[0]
   else
-    [ range(0; $outputs | length; 2) as $i |
-      if $i + 1 < ($outputs | length)
-      then blake3_parent_output(blake3_output_cv($outputs[$i]);
-                                blake3_output_cv($outputs[$i + 1]))
-      else $outputs[$i]
+    [ range(0; length; 2) as $i |
+      if $i + 1 < length
+      then blake3_parent_output(blake3_output_cv(.[$i]);
+                                blake3_output_cv(.[$i + 1]))
+      else .[$i]
       end ] |
-    blake3_tree_reduce(.)
+    blake3_tree_reduce
   end;
 
 # ── Variable output (XOF) ─────────────────────────────────────────────────────
@@ -354,7 +354,7 @@ def blake3_from_stream(gen; $nbytes):
   (([$total, 1] | max) + 1023) / 1024 | floor as $nchunks |
   [ range($nchunks) as $ci |
     blake3_chunk_output($bytes[$ci * 1024 : ($ci + 1) * 1024]; $ci) ] |
-  blake3_tree_reduce(.) |
+  blake3_tree_reduce |
   blake3_root_hex(.; $nbytes);
 
 def blake3_from_stream(gen): blake3_from_stream(gen; 32);
@@ -403,21 +403,20 @@ def blake3_of_b64($nbytes): blake3_from_stream(b64_stream_decode; $nbytes);
 # ── Helpers for hex ↔ word conversion (needed only by the tree functions) ─────
 
 # Single hex character → nibble value (0–15)
-def _blake3_nibble: "0123456789abcdef" | index(.);
+def _blake3_nibble($c): "0123456789abcdef" | index($c);
 
 # Two hex chars → byte integer (0–255)
-def _blake3_h2b: . as $h | ($h[0:1] | _blake3_nibble) * 16 + ($h[1:2] | _blake3_nibble);
+def _blake3_h2b($h): _blake3_nibble($h[0:1]) * 16 + _blake3_nibble($h[1:2]);
 
 # Eight hex chars encoding a little-endian 32-bit word → integer
-def _blake3_h8_to_word:
-  . as $h |
-  ($h[0:2] | _blake3_h2b)            +
-  ($h[2:4] | _blake3_h2b) * 256      +
-  ($h[4:6] | _blake3_h2b) * 65536    +
-  ($h[6:8] | _blake3_h2b) * 16777216;
+def _blake3_h8_to_word($h):
+  _blake3_h2b($h[0:2])            +
+  _blake3_h2b($h[2:4]) * 256      +
+  _blake3_h2b($h[4:6]) * 65536    +
+  _blake3_h2b($h[6:8]) * 16777216;
 
 # 64-char hex CV string → 8-word little-endian array
-def blake3_cv_hex_to_words: . as $h | [ range(8) as $i | $h[$i*8 : $i*8+8] | _blake3_h8_to_word ];
+def blake3_cv_hex_to_words: [ range(8) as $i | _blake3_h8_to_word(.[$i*8 : $i*8+8]) ];
 
 # 8-word little-endian array → 64-char hex CV string
 def blake3_cv_words_to_hex:
@@ -448,7 +447,7 @@ def blake3_from_stream_with_tree(gen):
   (([$total, 1] | max) + 1023) / 1024 | floor as $nchunks |
   [ range($nchunks) as $ci |
     blake3_chunk_output($bytes[$ci * 1024 : ($ci + 1) * 1024]; $ci) ] as $outputs |
-  blake3_tree_reduce($outputs) as $root |
+  ($outputs | blake3_tree_reduce) as $root |
   { hash:      blake3_root_hex($root; 32),
     chunk_cvs: [ $outputs[] | blake3_output_cv(.) | blake3_cv_words_to_hex ] };
 
@@ -463,8 +462,7 @@ def blake3_from_stream_with_tree(gen):
 # blake3_tree_reduce), collecting the sibling at each level.  Recursion depth
 # is ⌈log₂(chunks)⌉ ≤ 20 for inputs up to 1 GiB — trivially bounded.
 
-def blake3_extract_proof($index):
-  . as $cvs |
+def blake3_extract_proof($cvs; $index):
   ($cvs | length) as $n |
   if $n <= 1 then []
   else
@@ -484,8 +482,8 @@ def blake3_extract_proof($index):
                                    $cvs[$i+1] | blake3_cv_hex_to_words) |
            blake3_cv_words_to_hex
       else $cvs[$i]
-      end ] |
-    blake3_extract_proof($parent_idx) as $rest |
+      end ] as $next_cvs |
+    blake3_extract_proof($next_cvs; $parent_idx) as $rest |
     if $sibling then [$sibling] + $rest else $rest end
   end;
 
