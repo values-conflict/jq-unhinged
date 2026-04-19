@@ -38,11 +38,11 @@
 #
 #     Input (binary)   Base64 chars    Wall time    Chunks   Blocks
 #     ──────────────   ────────────    ─────────    ──────   ──────
-#         1 KiB            1 368         ~53 ms        1       16
-#        10 KiB           13 656        ~505 ms       10      160
-#        50 KiB           68 268        ~2.5  s       50      800
+#         1 KiB            1 368         ~49 ms        1       16
+#        10 KiB           13 656        ~455 ms       10      160
+#        50 KiB           68 268        ~2.35 s       50      800
 #
-#   Rule of thumb: ~50 ms per KiB of binary input (~2.7× faster than sha256.jq).
+#   Rule of thumb: ~49 ms per KiB of binary input (~2.7× faster than sha256.jq).
 #
 #   Practical thresholds for the intended use case (manifest / config validation):
 #     < 200 ms  →  ≤ ~4 KiB  — "feels instant"
@@ -348,14 +348,14 @@ def blake3_root_hex($root; $nbytes):
 # collection, chunks are processed independently (no carry between chunks during
 # the streaming phase) and merged up the Merkle tree.
 
-def blake3_from_stream(gen; nbytes):
+def blake3_from_stream(gen; $nbytes):
   [gen] as $bytes |
   ($bytes | length) as $total |
   (([$total, 1] | max) + 1023) / 1024 | floor as $nchunks |
   [ range($nchunks) as $ci |
     blake3_chunk_output($bytes[$ci * 1024 : ($ci + 1) * 1024]; $ci) ] |
   blake3_tree_reduce(.) |
-  blake3_root_hex(.; nbytes);
+  blake3_root_hex(.; $nbytes);
 
 def blake3_from_stream(gen): blake3_from_stream(gen; 32);
 
@@ -367,7 +367,7 @@ def blake3_of_b64: blake3_from_stream(b64_stream_decode);
 
 # Input (.): base64-encoded string
 # Output: 2*nbytes-character lowercase hex BLAKE3 digest (variable length, XOF)
-def blake3_of_b64(nbytes): blake3_from_stream(b64_stream_decode; nbytes);
+def blake3_of_b64($nbytes): blake3_from_stream(b64_stream_decode; $nbytes);
 
 # ── Merkle tree preservation and partial verification ─────────────────────────
 #

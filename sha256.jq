@@ -14,21 +14,21 @@
 #
 #     Input (binary)   Base64 chars    Wall time    Blocks
 #     ──────────────   ────────────    ─────────    ──────
-#         1 KiB            1 368         ~150 ms       16
-#        10 KiB           13 656        ~1.4  s       160
-#        50 KiB           68 268        ~6.8  s       800
+#         1 KiB            1 368         ~136 ms       16
+#        10 KiB           13 656        ~1.25 s       160
+#        50 KiB           68 268        ~6.3  s       800
 #
-#   Rule of thumb: ~150 ms per KiB of binary input.
+#   Rule of thumb: ~136 ms per KiB of binary input.
 #
 #   Practical thresholds for the intended use case (manifest / config validation):
-#     < 200 ms  →  ≤ 1.3 KiB — "feels instant"
-#     < 1 s     →  ≤ 6.5 KiB — acceptable for scripts
-#     < 3 s     →  ≤ 20 KiB  — borderline for automation
-#     > 5 s     →  ≥ 33 KiB  — too slow for interactive use
+#     < 200 ms  →  ≤ 1.5 KiB — "feels instant"
+#     < 1 s     →  ≤ 7.4 KiB — acceptable for scripts
+#     < 3 s     →  ≤ 22 KiB  — borderline for automation
+#     > 5 s     →  ≥ 37 KiB  — too slow for interactive use
 #
-#   Docker / OCI image configs: 400 B – 2 KiB → 60–300 ms  ✓
-#   Manifest JSON files:        1 KiB – 5 KiB → 150–750 ms ✓
-#   Actual layer tarballs:      MiB scale      → minutes    ✗ (use host sha256sum)
+#   Docker / OCI image configs: 400 B – 2 KiB → ~55–275 ms  ✓
+#   Manifest JSON files:        1 KiB – 5 KiB → ~136–680 ms ✓
+#   Actual layer tarballs:      MiB scale      → minutes     ✗ (use host sha256sum)
 #
 #   Perf note: σ₀/σ₁/Σ₀/Σ₁ are GF(2)-linear (XOR+rotate only, no AND), enabling
 #   precomputed half-word lookups: f(x) = t_hi[x/65536|0] ⊕ t_lo[x%65536].
@@ -80,12 +80,12 @@ def sha256_H0: [
 def mask32: . % 4294967296;
 
 # Modular 32-bit addition
-def add32(b): (. + b) % 4294967296;
+def add32($b): (. + $b) % 4294967296;
 
 # Right-rotate a 32-bit word by n positions (general, public API).
 # The two halves are always disjoint, so their OR = their sum.
-def rotr32(n):
-  (. / pow(2; n) | floor) + ((. % pow(2; n)) * pow(2; 32 - n));
+def rotr32($n):
+  (. / pow(2; $n) | floor) + ((. % pow(2; $n)) * pow(2; 32 - $n));
 
 # Specialised rotations used by SHA-256 — inlined constants avoid pow(2;n)
 # calls, saving ~41% per rotation vs the generic form above.
@@ -111,16 +111,16 @@ def _r25: (. / 33554432  | floor) + (. % 33554432  * 128);
 
 # Choice: for each bit, select from f (e=1) or g (e=0).
 # The two AND terms are always disjoint, so XOR = plain addition.
-def Ch(e; f; g): band(e; f) + band(4294967295 - e; g);
+def Ch($e; $f; $g): band($e; $f) + band(4294967295 - $e; $g);
 
 # Majority: output bit = majority of a, b, c.
 # Formula: a XOR ((a XOR b) AND (a XOR c)) — 4 band calls vs 5 in the
 # straightforward (a&b)^(a&c)^(b&c) expansion.
-def Maj(a; b; c):
-  band(a; b) as $ab | (a + b - 2*$ab) as $axb |
-  band(a; c) as $ac | (a + c - 2*$ac) as $axc |
+def Maj($a; $b; $c):
+  band($a; $b) as $ab | ($a + $b - 2*$ab) as $axb |
+  band($a; $c) as $ac | ($a + $c - 2*$ac) as $axc |
   band($axb; $axc) as $and |
-  band(a; $and) as $fab | a + $and - 2*$fab;
+  band($a; $and) as $fab | $a + $and - 2*$fab;
 
 # Uppercase Σ — used in the 64 compression rounds.
 # Each is a 3-way XOR of rotations; computed as two sequential 2-way XORs.

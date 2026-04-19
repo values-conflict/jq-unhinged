@@ -39,19 +39,19 @@ def _nat: [
 ];
 
 # 32-bit AND: 8 nibble lookups, no loops
-def band(a; b):
+def band($a; $b):
   _nat as $t |
-  $t[ (a         % 16) * 16 + (b         % 16) ]            +
-  $t[ ((a/16     |floor)%16) * 16 + ((b/16     |floor)%16) ] * 16       +
-  $t[ ((a/256    |floor)%16) * 16 + ((b/256    |floor)%16) ] * 256      +
-  $t[ ((a/4096   |floor)%16) * 16 + ((b/4096   |floor)%16) ] * 4096     +
-  $t[ ((a/65536  |floor)%16) * 16 + ((b/65536  |floor)%16) ] * 65536    +
-  $t[ ((a/1048576|floor)%16) * 16 + ((b/1048576|floor)%16) ] * 1048576  +
-  $t[ ((a/16777216 |floor)%16)*16 + ((b/16777216 |floor)%16)] * 16777216 +
-  $t[ (a/268435456|floor)    * 16 +  (b/268435456|floor)    ] * 268435456;
+  $t[ ($a         % 16) * 16 + ($b         % 16) ]            +
+  $t[ (($a/16     |floor)%16) * 16 + (($b/16     |floor)%16) ] * 16       +
+  $t[ (($a/256    |floor)%16) * 16 + (($b/256    |floor)%16) ] * 256      +
+  $t[ (($a/4096   |floor)%16) * 16 + (($b/4096   |floor)%16) ] * 4096     +
+  $t[ (($a/65536  |floor)%16) * 16 + (($b/65536  |floor)%16) ] * 65536    +
+  $t[ (($a/1048576|floor)%16) * 16 + (($b/1048576|floor)%16) ] * 1048576  +
+  $t[ (($a/16777216 |floor)%16)*16 + (($b/16777216 |floor)%16)] * 16777216 +
+  $t[ ($a/268435456|floor)    * 16 +  ($b/268435456|floor)    ] * 268435456;
 
 # 32-bit XOR via arithmetic identity: a XOR b = a + b - 2*(a AND b)
-def bxor(a; b): band(a; b) as $ab | a + b - 2 * $ab;
+def bxor($a; $b): band($a; $b) as $ab | $a + $b - 2 * $ab;
 
 # 32-bit NOT: complement relative to 0xFFFFFFFF
 def bnot32: 4294967295 - .;
