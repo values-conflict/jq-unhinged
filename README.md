@@ -6,7 +6,7 @@ Pure-`jq` streaming base64 decoder, SHA-256/SHA-512/BLAKE3 implementations, and 
 No shell utilities, no external dependencies -- just `jq`. 🥳
 
 All byte streams are represented as generators of raw integers (0–255), making them safe for arbitrary binary data.
-Unlike `jq`'s built-in `@base64d` -- which decodes to a UTF-8 string and silently mangles bytes above 127 -- these handle the full 0–255 range correctly. 😏
+Unlike `jq`'s built-in `@base64d` -- which decodes to a UTF-8 string and silently mangles bytes above 127 -- these handle the full 0–255 range correctly. 👀
 
 All files are designed to be `include`d in your own `jq` programs.
 Point `jq` at the directory containing these files with `-L /path/to/dir`, or `-L .` when running from the repo root.
