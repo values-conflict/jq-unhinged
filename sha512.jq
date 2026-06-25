@@ -2,10 +2,8 @@
 #
 # Public entry points:
 #
-#   sha512_of_b64         — input (.): base64 string → 128-char lowercase hex digest
 #   sha512_from_stream(gen) — gen: any generator of byte integers → hex digest
 #
-# Base64 decoding is handled by b64.jq (imported below as b64::).
 # Shared bitwise primitives (band, bxor, bits::word_to_hex) come from
 # bits.jq (imported below as bits::); sha256.jq and sha512.jq share these without duplication.
 #
@@ -50,7 +48,6 @@
 #   Actual layer tarballs:      MiB scale      →  minutes     ✗ (use host sha512sum)
 
 import "bits" as bits;
-import "b64" as b64;
 
 # ── SHA-512 round constants K[0..79] ─────────────────────────────────────────
 # FIPS 180-4 §4.2.3: "These words represent the first sixty-four bits of the
@@ -350,10 +347,3 @@ def sha512_from_stream(gen):
     process_block512($padded[$bi * 128 : ($bi + 1) * 128]; .; $k)
   ) |
   map(word64_to_hex) | join("");
-
-# ── Public convenience entry points ───────────────────────────────────────────
-
-# Input (.): base64-encoded string (standard alphabet, "=" padding)
-# Output: 128-character lowercase hex SHA-512 digest of the decoded bytes
-def sha512_of_b64:
-  sha512_from_stream(b64::b64_stream_decode);

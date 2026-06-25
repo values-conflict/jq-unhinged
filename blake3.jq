@@ -4,13 +4,10 @@
 #
 # Public entry points:
 #
-#   blake3_of_b64             — input (.): base64 string → 64-char hex (256-bit)
-#   blake3_of_b64(nbytes)     — input (.): base64 string → 2*nbytes-char hex (XOF)
 #   blake3_from_stream(gen)   — gen: byte-integer generator → 64-char hex (256-bit)
 #   blake3_from_stream(gen;n) — gen: byte-integer generator → 2*n-char hex (XOF)
 #
-# Base64 decoding is handled by b64.jq; bitwise primitives come from bits.jq.
-# Both are imported transitively through sha256.jq (see blake3_IV below).
+# Bitwise primitives come from bits.jq, imported transitively through sha256.jq (see blake3_IV below).
 #
 # ── Algorithm overview ────────────────────────────────────────────────────────
 #
@@ -56,7 +53,6 @@
 
 include "sha256";       # sha256_H0 is aliased as blake3_IV below
 import "bits" as bits;  # band, bxor — the hot-path bitwise primitives
-import "b64" as b64;    # b64_stream_decode — used by blake3_of_b64
 
 # ── Initialization vector ─────────────────────────────────────────────────────
 #
@@ -359,16 +355,6 @@ def blake3_from_stream(gen; $nbytes):
 
 def blake3_from_stream(gen): blake3_from_stream(gen; 32);
 
-# ── Public convenience entry points ───────────────────────────────────────────
-
-# Input (.): base64-encoded string (standard alphabet, "=" padding)
-# Output: 64-character lowercase hex BLAKE3 digest (256-bit / 32-byte default)
-def blake3_of_b64: blake3_from_stream(b64::b64_stream_decode);
-
-# Input (.): base64-encoded string
-# Output: 2*nbytes-character lowercase hex BLAKE3 digest (variable length, XOF)
-def blake3_of_b64($nbytes): blake3_from_stream(b64::b64_stream_decode; $nbytes);
-
 # ── Merkle tree preservation and partial verification ─────────────────────────
 #
 # BLAKE3's binary Merkle tree allows verifying that a specific 1024-byte chunk
@@ -376,16 +362,16 @@ def blake3_of_b64($nbytes): blake3_from_stream(b64::b64_stream_decode; $nbytes);
 #
 # ── Generating a tree object ──────────────────────────────────────────────────
 #
-#   include "blake3";
-#   "<base64-of-full-input>" | blake3_from_stream_with_tree(b64::b64_stream_decode)
+#   include "b64"; include "blake3";
+#   "<base64-of-full-input>" | blake3_from_stream_with_tree(b64_stream_decode)
 #
 # Output: { "hash": "64-char-hex", "chunk_cvs": ["64-char-hex", …] }
 #
 # To immediately extract the proof for chunk 0 from the same pipeline:
 #
-#   include "blake3";
+#   include "b64"; include "blake3";
 #   "<base64-of-full-input>"
-#   | blake3_from_stream_with_tree(b64::b64_stream_decode)
+#   | blake3_from_stream_with_tree(b64_stream_decode)
 #   | { hash, proof: (.chunk_cvs | blake3_extract_proof(0)) }
 #
 # ── Workflow ──────────────────────────────────────────────────────────────────

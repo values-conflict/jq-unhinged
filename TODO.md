@@ -1,4 +1,3 @@
-- drop `_of_b64` and `_from_b64` convenience functions entirely
 - add tests for the bonus blake3 functions
   - remove bonus functions instead?
 - look for more algorithms, especially sha256-similar quantum-resistant ones

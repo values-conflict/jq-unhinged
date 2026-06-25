@@ -4,8 +4,6 @@
 #
 #   gzip_from_stream(gen) — gen: generator of compressed byte integers
 #                         → generator of decompressed byte integers
-#   gzip_from_b64         — input (.): base64 string
-#                         → generator of decompressed byte integers
 #
 # The decompressor is a streaming state machine driven by jq's `foreach`.  It
 # consumes one compressed byte per iteration and emits decompressed bytes
@@ -24,8 +22,6 @@
 #   Huffman codes are transmitted MSB-first.  After accumulating L bits the
 #   canonical code value equals bit_reverse(.v % p2[L], L).
 #   _gz_htable stores bit-reversed keys so decode is one direct array lookup.
-
-import "b64" as b64;
 
 # ── Bit utilities ─────────────────────────────────────────────────────────────
 
@@ -507,7 +503,3 @@ def gzip_from_stream(gen):
     .out = [] | .v += ($byte * $p2[.n]) | .n += 8 | _gz_drain;
     .out[]
   );
-
-# Input: base64 string → generator of decompressed byte integers
-def gzip_from_b64:
-  gzip_from_stream(b64::b64_stream_decode);

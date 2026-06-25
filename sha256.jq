@@ -2,10 +2,7 @@
 #
 # Public entry points:
 #
-#   sha256_of_b64         — input (.): base64 string → 64-char lowercase hex digest
 #   sha256_from_stream(gen) — gen: any generator of byte integers → hex digest
-#
-# Base64 decoding is handled by b64.jq (included below).
 #
 # ── Performance characteristics (jq 1.7, measured on WSL2) ──────────────────
 #
@@ -37,7 +34,6 @@
 #   of per-invocation load overhead, making them a net loss below ~5 KiB input.
 
 import "bits" as bits;
-import "b64" as b64;
 
 # ── SHA-256 round constants K[0..63] ──────────────────────────────────────
 # FIPS 180-4 §4.2.2: "These words represent the first thirty-two bits of the
@@ -242,10 +238,3 @@ def sha256_from_stream(gen):
     process_block($padded[$bi * 64 : ($bi + 1) * 64]; .; $k)
   ) |
   map(bits::word_to_hex) | join("");
-
-# ── Public convenience entry points ───────────────────────────────────────
-
-# Input (.): base64-encoded string (standard alphabet, "=" padding)
-# Output: 64-character lowercase hex SHA-256 digest of the decoded bytes
-def sha256_of_b64:
-  sha256_from_stream(b64::b64_stream_decode);
