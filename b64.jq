@@ -1,8 +1,10 @@
-# b64.jq — Pure-jq base64 decoder (standard alphabet, "=" padding)
+# b64.jq — Pure-jq base64 decoder and encoder (standard alphabet, "=" padding)
 #
 # Public entry points:
 #
-#   b64_stream_decode  — input (.): base64 string → generator of byte integers
+#   b64_stream_decode             — input (.): base64 string → generator of byte integers
+#   b64_stream_encode(gen)        — gen: generator of byte integers → base64 string
+#   b64_stream_encode(gen; wrap)  — same, wrapped at `wrap` chars per line (0 = no wrap)
 #
 # Bytes are represented as plain integers (0–255), not jq strings, so arbitrary
 # binary data (bytes > 127) is handled correctly with no UTF-8 mangling.
@@ -91,3 +93,108 @@ def b64_stream_decode:
     (($v[2] % 4) * 64 + $v[3])
   end;
 
+# ── Base64 value → character codepoint ────────────────────────────────────
+#
+# inverse of b64val: maps a 6-bit value (0–63) to its ASCII codepoint
+
+# map a 6-bit value (0–63) to its base64 character codepoint (inverse of b64val)
+def _b64_codepoint:
+	if   . < 26 then . + 65   # 0–25  → A–Z  ('A'=65)
+	elif . < 52 then . + 71   # 26–51 → a–z  ('a'=97, 97−26=71)
+	elif . < 62 then . - 4    # 52–61 → 0–9  ('0'=48, 48−52=−4)
+	elif . == 62 then 43       # 62    → '+'
+	else              47       # 63    → '/'
+	end
+;
+
+# ── Streaming encoder ──────────────────────────────────────────────────────
+#
+# RFC 4648 §4: 3 input bytes → 4 base64 characters, with '=' padding when
+# the input length is not a multiple of 3:
+#   n ≡ 1 (mod 3) → "XX=="  (1 data byte  → 2 base64 chars + "==")
+#   n ≡ 2 (mod 3) → "XXX="  (2 data bytes → 3 base64 chars + "=")
+
+# stream bytes in triples; emit one 4-char base64 group per triple;
+# null sentinel triggers padding for any remaining 1–2 bytes
+def _b64_groups(gen):
+	foreach (gen, null) as $byte (
+		{ b0: null, b1: null, group: null };
+		.group = null
+		| if $byte == null then
+			if .b1 != null then
+				.b0 as $b0
+				| .b1 as $b1
+				| .group = ([
+					($b0 / 4 | floor | _b64_codepoint),
+					(($b0 % 4) * 16 + ($b1 / 16 | floor) | _b64_codepoint),
+					(($b1 % 16) * 4 | _b64_codepoint),
+					61, # '='
+					empty
+				] | implode)
+				| .b0 = null
+				| .b1 = null
+			elif .b0 != null then
+				.b0 as $b0
+				| .group = ([
+					($b0 / 4 | floor | _b64_codepoint),
+					(($b0 % 4) * 16 | _b64_codepoint),
+					61, 61, # '=='
+					empty
+				] | implode)
+				| .b0 = null
+			else
+				.
+			end
+		elif .b0 == null then
+			.b0 = $byte
+		elif .b1 == null then
+			.b1 = $byte
+		else
+			.b0 as $b0
+			| .b1 as $b1
+			| .group = ([
+				($b0 / 4 | floor | _b64_codepoint),
+				(($b0 % 4) * 16 + ($b1 / 16 | floor) | _b64_codepoint),
+				(($b1 % 16) * 4 + ($byte / 64 | floor) | _b64_codepoint),
+				($byte % 64 | _b64_codepoint),
+				empty
+			] | implode)
+			| .b0 = null
+			| .b1 = null
+		end;
+		if .group != null then .group else empty end
+	)
+;
+
+# gen: generator of byte integers (0–255)
+# wrap: characters per output string (any positive integer, like base64 -w);
+#       use 0 for no line-wrapping (emit a single string)
+# output: generator of base64 strings
+#   wrap=0 → exactly one string ("" for empty input)
+#   wrap=N → one string per N-character line (empty input → no output)
+def b64_stream_encode(gen; $wrap):
+	foreach (_b64_groups(gen), null) as $group (
+		{ line: "", readyLines: [] };
+		if $group == null then
+			if (.line | length) > 0 or $wrap == 0 then { line: "", readyLines: [ .line ] }
+			else { line: "", readyLines: [] }
+			end
+		else
+			(.line + $group) as $newLine |
+			($newLine | length) as $len |
+			(if $wrap == 0 then 0 else $len / $wrap | floor end) as $numLines |
+			{
+				line: $newLine[$numLines * $wrap :],
+				readyLines: [
+					range($numLines) as $i | $newLine[$i * $wrap : ($i + 1) * $wrap],
+					empty
+				],
+			}
+		end;
+		.readyLines[]
+	)
+;
+
+def b64_stream_encode(gen):
+	b64_stream_encode(gen; 0)
+;

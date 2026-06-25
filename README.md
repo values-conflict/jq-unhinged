@@ -23,6 +23,23 @@ Hello, world!
 $ # important note on this example: jq's "implode" expects an array of unicode codepoints and this returns an array of bytes, so this will lead to mojibake like "café" -> "cafÃ©"
 ```
 
+### `b64_stream_encode(gen)` / `b64_stream_encode(gen; wrap)`
+
+Encode a stream of byte integers to base64.  `wrap=0` (the default) emits a single string; any positive integer wraps at exactly that many characters per line, matching `base64 -w`.
+
+```console
+$ jq -rn -L . 'include "b64"; "SGVsbG8sIHdvcmxkIQ==" | b64_stream_encode(b64_stream_decode)'
+SGVsbG8sIHdvcmxkIQ==
+$ jq -rn -L . 'include "b64"; "Zm9vCg==" | b64_stream_encode(b64_stream_decode; 3)'
+Zm9
+vCg
+==
+$ base64 -w3 <<< 'foo'
+Zm9
+vCg
+==
+```
+
 ---
 
 ## [`sha256.jq`](sha256.jq)

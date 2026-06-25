@@ -115,3 +115,76 @@ include "b64"; [b64_stream_decode] | .[0:2]
 include "b64"; [b64_stream_decode] | length
 "H4sIAAAAAAACAyspKk1loDEwAAJTU1MwDQTotIGhuQmcDRE3MzM0YlAwYKADKC0uSSxSUGAYoaDe1ceNiZERzmdisGMA8SoYHMB8Byx6HBgsGGA6QDQrmiwyXQPl1cDlIUG9wYaflWEUDDgAAIAGdJIABAAA"
 117
+
+# ── b64_stream_encode ──────────────────────────────────────────────────────
+
+# b64_stream_encode: empty input → empty string (wrap=0 always emits one string)
+include "b64"; b64_stream_encode(empty)
+null
+""
+
+# b64_stream_encode: empty input + wrap=76 → no output
+include "b64"; [b64_stream_encode(empty; 76)]
+null
+[]
+
+# b64_stream_encode: [0] → "AA=="
+include "b64"; b64_stream_encode(.[])
+[0]
+"AA=="
+
+# b64_stream_encode: [1] → "AQ=="
+include "b64"; b64_stream_encode(.[])
+[1]
+"AQ=="
+
+# b64_stream_encode: [255] → "/w==" (high byte — no UTF-8 mangling)
+include "b64"; b64_stream_encode(.[])
+[255]
+"/w=="
+
+# b64_stream_encode: [0, 0] → "AAA="
+include "b64"; b64_stream_encode(.[])
+[0,0]
+"AAA="
+
+# b64_stream_encode: [0, 1, 2] → "AAEC"
+include "b64"; b64_stream_encode(.[])
+[0,1,2]
+"AAEC"
+
+# b64_stream_encode: high bytes across a group boundary — 0xFF 0xFE 0xFD
+include "b64"; b64_stream_encode(.[])
+[255,254,253]
+"//79"
+
+# b64_stream_encode: one full group + one padded → "AAAAAA=="
+include "b64"; b64_stream_encode(.[])
+[0,0,0,0]
+"AAAAAA=="
+
+# b64_stream_encode: two full groups → "AAAAAAAA"
+include "b64"; b64_stream_encode(.[])
+[0,0,0,0,0,0]
+"AAAAAAAA"
+
+# b64_stream_encode: wrap=3 matches base64 -w3 (non-multiple-of-4 wrap)
+# base64 -w3 <<< 'foo' → "Zm9\nvCg\n=="
+include "b64"; [b64_stream_encode(.[]; 3)]
+[102,111,111,10]
+["Zm9","vCg","=="]
+
+# b64_stream_encode: wrap=4, two groups on separate lines
+include "b64"; [b64_stream_encode(.[]; 4)]
+[0,0,0,0,0,0]
+["AAAA","AAAA"]
+
+# b64_stream_encode: round-trip with b64_stream_decode → original string
+include "b64"; b64_stream_encode(b64_stream_decode)
+"SGVsbG8sIHdvcmxkIQ=="
+"SGVsbG8sIHdvcmxkIQ=="
+
+# b64_stream_encode: round-trip with Docker image config — 451 bytes
+include "b64"; b64_stream_encode(b64_stream_decode)
+"eyJjb25maWciOnsiRW52IjpbIlBBVEg9L3Vzci9sb2NhbC9zYmluOi91c3IvbG9jYWwvYmluOi91c3Ivc2JpbjovdXNyL2Jpbjovc2JpbjovYmluIl0sIkVudHJ5cG9pbnQiOltdLCJDbWQiOlsiYmFzaCJdfSwiY3JlYXRlZCI6IjIwMjYtMDQtMDZUMDA6MDA6MDBaIiwiaGlzdG9yeSI6W3siY3JlYXRlZCI6IjIwMjYtMDQtMDZUMDA6MDA6MDBaIiwiY3JlYXRlZF9ieSI6IiMgZGViaWFuLnNoIC0tYXJjaCAnYW1kNjQnIG91dC8gJ3RyaXhpZScgJ0AxNzc1NDMzNjAwJyIsImNvbW1lbnQiOiJkZWJ1ZXJyZW90eXBlIDAuMTcifV0sInJvb3RmcyI6eyJ0eXBlIjoibGF5ZXJzIiwiZGlmZl9pZHMiOlsic2hhMjU2OjQ3ZTY3M2UzMjgxN2ZiYWY1MzYxOTM2NDU4N2ViZjZiMmQ0MWYzZmQ1ZTAyYjNmYTZhM2IyZmQwMWI0N2RkZmIiXX0sIm9zIjoibGludXgiLCJhcmNoaXRlY3R1cmUiOiJhbWQ2NCJ9Cg=="
+"eyJjb25maWciOnsiRW52IjpbIlBBVEg9L3Vzci9sb2NhbC9zYmluOi91c3IvbG9jYWwvYmluOi91c3Ivc2JpbjovdXNyL2Jpbjovc2JpbjovYmluIl0sIkVudHJ5cG9pbnQiOltdLCJDbWQiOlsiYmFzaCJdfSwiY3JlYXRlZCI6IjIwMjYtMDQtMDZUMDA6MDA6MDBaIiwiaGlzdG9yeSI6W3siY3JlYXRlZCI6IjIwMjYtMDQtMDZUMDA6MDA6MDBaIiwiY3JlYXRlZF9ieSI6IiMgZGViaWFuLnNoIC0tYXJjaCAnYW1kNjQnIG91dC8gJ3RyaXhpZScgJ0AxNzc1NDMzNjAwJyIsImNvbW1lbnQiOiJkZWJ1ZXJyZW90eXBlIDAuMTcifV0sInJvb3RmcyI6eyJ0eXBlIjoibGF5ZXJzIiwiZGlmZl9pZHMiOlsic2hhMjU2OjQ3ZTY3M2UzMjgxN2ZiYWY1MzYxOTM2NDU4N2ViZjZiMmQ0MWYzZmQ1ZTAyYjNmYTZhM2IyZmQwMWI0N2RkZmIiXX0sIm9zIjoibGludXgiLCJhcmNoaXRlY3R1cmUiOiJhbWQ2NCJ9Cg=="
