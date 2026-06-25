@@ -1,0 +1,12 @@
+- add tests for the bonus blake3 functions
+  - remove bonus functions instead?
+- look for more algorithms, especially sha256-similar quantum-resistant ones
+- dead code, like `add32`
+- private functions should have private names (everything exports)
+- GitHub Actions
+- automated performance testing (instead of ad-hoc)
+- similarly, figure out some way to do coverage testing
+- tianon jqfmt
+- look for easy low-hanging fruit in jq itself to speed it up
+- test with jaq too
+- jaq has native binary data support - how can we integrate with that in a clean way while still being jq-compatible?
