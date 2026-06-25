@@ -5,9 +5,9 @@
 #   sha512_of_b64         — input (.): base64 string → 128-char lowercase hex digest
 #   sha512_from_stream(gen) — gen: any generator of byte integers → hex digest
 #
-# Base64 decoding is handled by b64.jq (included below).
-# Shared bitwise primitives (_nat, band, bxor, word_to_hex) come from
-# bits.jq (included below); sha256.jq and sha512.jq share these without duplication.
+# Base64 decoding is handled by b64.jq (imported below as b64::).
+# Shared bitwise primitives (band, bxor, bits::word_to_hex) come from
+# bits.jq (imported below as bits::); sha256.jq and sha512.jq share these without duplication.
 #
 # ── 64-bit arithmetic via [hi, lo] pairs ────────────────────────────────────
 #
@@ -49,8 +49,8 @@
 #   Manifest JSON files:        1 KiB – 5 KiB →  ~192 ms–1 s ✓
 #   Actual layer tarballs:      MiB scale      →  minutes     ✗ (use host sha512sum)
 
-include "bits";
-include "b64";
+import "bits" as bits;
+import "b64" as b64;
 
 # ── SHA-512 round constants K[0..79] ─────────────────────────────────────────
 # FIPS 180-4 §4.2.3: "These words represent the first sixty-four bits of the
@@ -108,7 +108,7 @@ def sha512_H0: [
 # 64-bit XOR: same arithmetic identity as bxor, applied per-half.
 def bxor64($a; $b):
   $a as [$ah, $al] | $b as [$bh, $bl] |
-  band($ah; $bh) as $h | band($al; $bl) as $l |
+  bits::band($ah; $bh) as $h | bits::band($al; $bl) as $l |
   [ $ah + $bh - 2*$h, $al + $bl - 2*$l ];
 
 # 64-bit modular addition with carry.
@@ -120,7 +120,7 @@ def add64($a; $b):
   [ ($ah + $bh + ($s / 4294967296 | floor)) % 4294967296, $s % 4294967296 ];
 
 # 64-bit word → 16-character lowercase hex string.
-def word64_to_hex: (.[0] | word_to_hex) + (.[1] | word_to_hex);
+def word64_to_hex: (.[0] | bits::word_to_hex) + (.[1] | bits::word_to_hex);
 
 # ── Specialised 64-bit rotations and shifts ───────────────────────────────────
 #
@@ -203,20 +203,20 @@ def _s64_6:  .[0] as $h | .[1] as $l |            # SHR64(6)
 # Applied independently to each 32-bit half — 4 band calls total (vs 2 for SHA-256).
 def Ch64($e; $f; $g):
   $e as [$eh, $el] | $f as [$fh, $fl] | $g as [$gh, $gl] |
-  [ band($eh; $fh) + band(4294967295 - $eh; $gh),
-    band($el; $fl) + band(4294967295 - $el; $gl) ];
+  [ bits::band($eh; $fh) + bits::band(4294967295 - $eh; $gh),
+    bits::band($el; $fl) + bits::band(4294967295 - $el; $gl) ];
 
 # Majority: output bit = majority of a, b, c.
 # Formula: a XOR ((a XOR b) AND (a XOR c)) — applied per half.
 # 8 band calls total (vs 4 for SHA-256).
 def Maj64($a; $b; $c):
   $a as [$ah, $al] | $b as [$bh, $bl] | $c as [$ch, $cl] |
-  band($ah; $bh) as $abh | ($ah + $bh - 2*$abh) as $axbh |
-  band($al; $bl) as $abl | ($al + $bl - 2*$abl) as $axbl |
-  band($ah; $ch) as $ach | ($ah + $ch - 2*$ach) as $axch |
-  band($al; $cl) as $acl | ($al + $cl - 2*$acl) as $axcl |
-  band($axbh; $axch) as $andh | band($axbl; $axcl) as $andl |
-  band($ah; $andh) as $fabh | band($al; $andl) as $fabl |
+  bits::band($ah; $bh) as $abh | ($ah + $bh - 2*$abh) as $axbh |
+  bits::band($al; $bl) as $abl | ($al + $bl - 2*$abl) as $axbl |
+  bits::band($ah; $ch) as $ach | ($ah + $ch - 2*$ach) as $axch |
+  bits::band($al; $cl) as $acl | ($al + $cl - 2*$acl) as $axcl |
+  bits::band($axbh; $axch) as $andh | bits::band($axbl; $axcl) as $andl |
+  bits::band($ah; $andh) as $fabh | bits::band($al; $andl) as $fabl |
   [ $ah + $andh - 2*$fabh, $al + $andl - 2*$fabl ];
 
 # Uppercase Σ — used in compression rounds.
@@ -356,4 +356,4 @@ def sha512_from_stream(gen):
 # Input (.): base64-encoded string (standard alphabet, "=" padding)
 # Output: 128-character lowercase hex SHA-512 digest of the decoded bytes
 def sha512_of_b64:
-  sha512_from_stream(b64_stream_decode);
+  sha512_from_stream(b64::b64_stream_decode);

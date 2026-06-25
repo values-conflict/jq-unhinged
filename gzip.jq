@@ -25,7 +25,7 @@
 #   canonical code value equals bit_reverse(.v % p2[L], L).
 #   _gz_htable stores bit-reversed keys so decode is one direct array lookup.
 
-include "b64";
+import "b64" as b64;
 
 # ── Bit utilities ─────────────────────────────────────────────────────────────
 
@@ -510,4 +510,4 @@ def gzip_from_stream(gen):
 
 # Input: base64 string → generator of decompressed byte integers
 def gzip_from_b64:
-  gzip_from_stream(b64_stream_decode);
+  gzip_from_stream(b64::b64_stream_decode);

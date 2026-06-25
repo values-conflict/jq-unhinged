@@ -54,9 +54,9 @@
 #   Manifest JSON files:        1 KiB – 5 KiB →  ~50–250 ms  ✓
 #   Actual layer tarballs:      MiB scale      →  minutes     ✗ (use host b3sum)
 
-include "bits";    # band, bxor — the hot-path bitwise primitives
-include "b64";     # b64_stream_decode — used by blake3_of_b64
-include "sha256";  # sha256_H0 is aliased as blake3_IV below
+include "sha256";       # sha256_H0 is aliased as blake3_IV below
+import "bits" as bits;  # band, bxor — the hot-path bitwise primitives
+import "b64" as b64;    # b64_stream_decode — used by blake3_of_b64
 
 # ── Initialization vector ─────────────────────────────────────────────────────
 #
@@ -124,18 +124,18 @@ def _r16: (. / 65536 | floor) + (. % 65536 * 65536);
 #
 # Input (.): the 16-word state array v[0..15]; a, b, c, d are indices.
 # jq array update (.[i] = v) is functional and produces a new array each call.
-# XOR via the arithmetic identity bxor(a;b) = a+b−2·band(a;b) from bits.jq:
+# XOR via the arithmetic identity bits::bxor(a;b) = a+b−2·band(a;b) from bits.jq:
 # 1 band call per XOR → 4 band calls per G → 32 per round → 224 per compression.
 
 def blake3_G($a; $b; $c; $d; $x; $y):
   ((.[$a] + .[$b] + $x) % 4294967296) as $va  |
-  (bxor(.[$d]; $va) | _r16)            as $vd  |
-  ((.[$c] + $vd) % 4294967296)         as $vc  |
-  (bxor(.[$b]; $vc) | _r12)            as $vb  |
-  (($va + $vb + $y) % 4294967296)      as $va2 |
-  (bxor($vd; $va2) | _r8)              as $vd2 |
-  (($vc + $vd2) % 4294967296)          as $vc2 |
-  (bxor($vb; $vc2) | _r7)              as $vb2 |
+  (bits::bxor(.[$d]; $va) | _r16)     as $vd  |
+  ((.[$c] + $vd) % 4294967296)        as $vc  |
+  (bits::bxor(.[$b]; $vc) | _r12)     as $vb  |
+  (($va + $vb + $y) % 4294967296)     as $va2 |
+  (bits::bxor($vd; $va2) | _r8)       as $vd2 |
+  (($vc + $vd2) % 4294967296)         as $vc2 |
+  (bits::bxor($vb; $vc2) | _r7)       as $vb2 |
   .[$a] = $va2 | .[$b] = $vb2 | .[$c] = $vc2 | .[$d] = $vd2;
 
 # ── Round function ────────────────────────────────────────────────────────────
@@ -196,8 +196,8 @@ def blake3_compress($cv; $blk; $clo; $chi; $bl; $fl):
   ($cv + [$iv[0], $iv[1], $iv[2], $iv[3], $clo, $chi, $bl, $fl]) as $s0 |
   reduce range(7) as $r ($s0; blake3_round($sc[$r])) |
   . as $s |
-  [ range(8) as $i | bxor($s[$i]; $s[$i+8]) ] +
-  [ range(8) as $i | bxor($s[$i+8]; $cv[$i]) ];
+  [ range(8) as $i | bits::bxor($s[$i]; $s[$i+8]) ] +
+  [ range(8) as $i | bits::bxor($s[$i+8]; $cv[$i]) ];
 
 # ── Little-endian helpers ─────────────────────────────────────────────────────
 #
@@ -363,11 +363,11 @@ def blake3_from_stream(gen): blake3_from_stream(gen; 32);
 
 # Input (.): base64-encoded string (standard alphabet, "=" padding)
 # Output: 64-character lowercase hex BLAKE3 digest (256-bit / 32-byte default)
-def blake3_of_b64: blake3_from_stream(b64_stream_decode);
+def blake3_of_b64: blake3_from_stream(b64::b64_stream_decode);
 
 # Input (.): base64-encoded string
 # Output: 2*nbytes-character lowercase hex BLAKE3 digest (variable length, XOF)
-def blake3_of_b64($nbytes): blake3_from_stream(b64_stream_decode; $nbytes);
+def blake3_of_b64($nbytes): blake3_from_stream(b64::b64_stream_decode; $nbytes);
 
 # ── Merkle tree preservation and partial verification ─────────────────────────
 #
@@ -377,7 +377,7 @@ def blake3_of_b64($nbytes): blake3_from_stream(b64_stream_decode; $nbytes);
 # ── Generating a tree object ──────────────────────────────────────────────────
 #
 #   include "blake3";
-#   "<base64-of-full-input>" | blake3_from_stream_with_tree(b64_stream_decode)
+#   "<base64-of-full-input>" | blake3_from_stream_with_tree(b64::b64_stream_decode)
 #
 # Output: { "hash": "64-char-hex", "chunk_cvs": ["64-char-hex", …] }
 #
@@ -385,7 +385,7 @@ def blake3_of_b64($nbytes): blake3_from_stream(b64_stream_decode; $nbytes);
 #
 #   include "blake3";
 #   "<base64-of-full-input>"
-#   | blake3_from_stream_with_tree(b64_stream_decode)
+#   | blake3_from_stream_with_tree(b64::b64_stream_decode)
 #   | { hash, proof: (.chunk_cvs | blake3_extract_proof(0)) }
 #
 # ── Workflow ──────────────────────────────────────────────────────────────────

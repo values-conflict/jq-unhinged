@@ -36,8 +36,8 @@
 #   at 50 KiB.  The drawback: the tables weigh ≈ 5.3 MiB of JSON and add ~79 ms
 #   of per-invocation load overhead, making them a net loss below ~5 KiB input.
 
-include "bits";
-include "b64";
+import "bits" as bits;
+import "b64" as b64;
 
 # ── SHA-256 round constants K[0..63] ──────────────────────────────────────
 # FIPS 180-4 §4.2.2: "These words represent the first thirty-two bits of the
@@ -74,7 +74,7 @@ def sha256_H0: [
 ];
 
 # ── 32-bit word primitives ─────────────────────────────────────────────────
-# _nat, band, bxor, word_to_hex are provided by bits.jq (included above).
+# band, bxor, bits::word_to_hex are provided by bits.jq (imported above as bits::).
 
 # Specialised rotations used by SHA-256 — inlined constants avoid pow(2;n)
 # calls, saving ~41% per rotation vs the generic form above.
@@ -100,39 +100,39 @@ def _r25: (. / 33554432  | floor) + (. % 33554432  * 128);
 
 # Choice: for each bit, select from f (e=1) or g (e=0).
 # The two AND terms are always disjoint, so XOR = plain addition.
-def Ch($e; $f; $g): band($e; $f) + band(4294967295 - $e; $g);
+def Ch($e; $f; $g): bits::band($e; $f) + bits::band(4294967295 - $e; $g);
 
 # Majority: output bit = majority of a, b, c.
 # Formula: a XOR ((a XOR b) AND (a XOR c)) — 4 band calls vs 5 in the
 # straightforward (a&b)^(a&c)^(b&c) expansion.
 def Maj($a; $b; $c):
-  band($a; $b) as $ab | ($a + $b - 2*$ab) as $axb |
-  band($a; $c) as $ac | ($a + $c - 2*$ac) as $axc |
-  band($axb; $axc) as $and |
-  band($a; $and) as $fab | $a + $and - 2*$fab;
+  bits::band($a; $b) as $ab | ($a + $b - 2*$ab) as $axb |
+  bits::band($a; $c) as $ac | ($a + $c - 2*$ac) as $axc |
+  bits::band($axb; $axc) as $x |
+  $a + $x - 2 * bits::band($a; $x);
 
 # Uppercase Σ — used in the 64 compression rounds.
 # Each is a 3-way XOR of rotations; computed as two sequential 2-way XORs.
 def Sigma0:
   _r2 as $r2 | _r13 as $r13 | _r22 as $r22 |
-  band($r2; $r13) as $ab | ($r2 + $r13 - 2*$ab) as $x |
-  $x + $r22 - 2 * band($x; $r22);
+  bits::band($r2; $r13) as $ab | ($r2 + $r13 - 2*$ab) as $x |
+  $x + $r22 - 2 * bits::band($x; $r22);
 
 def Sigma1:
   _r6 as $r6 | _r11 as $r11 | _r25 as $r25 |
-  band($r6; $r11) as $ab | ($r6 + $r11 - 2*$ab) as $x |
-  $x + $r25 - 2 * band($x; $r25);
+  bits::band($r6; $r11) as $ab | ($r6 + $r11 - 2*$ab) as $x |
+  $x + $r25 - 2 * bits::band($x; $r25);
 
 # Lowercase σ — used to extend the message schedule; SHR via integer divide.
 def sigma0:
   _r7 as $r7 | _r18 as $r18 | (. / 8 | floor) as $s |
-  band($r7; $r18) as $ab | ($r7 + $r18 - 2*$ab) as $x |
-  $x + $s - 2 * band($x; $s);
+  bits::band($r7; $r18) as $ab | ($r7 + $r18 - 2*$ab) as $x |
+  $x + $s - 2 * bits::band($x; $s);
 
 def sigma1:
   _r17 as $r17 | _r19 as $r19 | (. / 1024 | floor) as $s |
-  band($r17; $r19) as $ab | ($r17 + $r19 - 2*$ab) as $x |
-  $x + $s - 2 * band($x; $s);
+  bits::band($r17; $r19) as $ab | ($r17 + $r19 - 2*$ab) as $x |
+  $x + $s - 2 * bits::band($x; $s);
 
 # ── Message schedule ───────────────────────────────────────────────────────
 # FIPS 180-4 §6.2.2 step 1: "Prepare the message schedule, {Wt}:"
@@ -241,11 +241,11 @@ def sha256_from_stream(gen):
     $H;
     process_block($padded[$bi * 64 : ($bi + 1) * 64]; .; $k)
   ) |
-  map(word_to_hex) | join("");
+  map(bits::word_to_hex) | join("");
 
 # ── Public convenience entry points ───────────────────────────────────────
 
 # Input (.): base64-encoded string (standard alphabet, "=" padding)
 # Output: 64-character lowercase hex SHA-256 digest of the decoded bytes
 def sha256_of_b64:
-  sha256_from_stream(b64_stream_decode);
+  sha256_from_stream(b64::b64_stream_decode);
