@@ -9,3 +9,4 @@
 - test with jaq too
 - jaq has native binary data support - how can we integrate with that in a clean way while still being jq-compatible?
 - drop 1.6 from GHA because it takes way too long (way too slow) -- we should also note in the README that 1.6 probably technically works, but is way too slow for real-world use (current tests across b64+sha256+sha512+blake3+gzip take ~10s on 1.7 and 1.8 and ~3m6s on 1.6)
+- base64 *encoding* is a naturally stream-shaped thing that could be implemented with `-r` and a loop that takes a stream of byte integers like what we get into/out of these functions and emits a stream of "wrapped" base64 strings -- we could even implement a version that takes an arbitrary wrap length like `base64 -w` does (including accepting 0 as a valid "width" for "collect everything into a single string")
