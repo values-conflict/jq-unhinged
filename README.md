@@ -59,7 +59,6 @@ c1527cd893c124773d811911970c8fe6e857d6df5dc9226bd8a160614c0cd963a4ddea2b94bb7d36
 ## [`blake3.jq`](blake3.jq)
 
 BLAKE3 uses a binary Merkle tree over 1024-byte chunks and supports variable-length output (XOF).
-For advanced use, `blake3_from_stream_with_tree`, `blake3_extract_proof`, and `blake3_verify_proof` expose the Merkle tree structure and enable partial verification of individual chunks without re-hashing the full input; see [`blake3.jq`](blake3.jq) for documentation and usage examples.
 
 ### `blake3_from_stream(gen)`
 

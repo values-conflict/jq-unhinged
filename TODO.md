@@ -1,5 +1,4 @@
-- add tests for the bonus blake3 functions
-  - remove bonus functions instead?
+- look into generating bao ("BLAKE3 Verified Streaming") output -- jq is more accessible than the Go/Rust bao binary
 - look for more algorithms, especially sha256-similar quantum-resistant ones
 - private functions should have private names (everything exports)
 - automated performance testing (instead of ad-hoc)
