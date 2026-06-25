@@ -26,19 +26,19 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: jq 1.6
-            url: https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64
-            # no upstream checksum available for jq 1.6
-            sha256: af986793a515d500ab2d35f8d2aecd656e764504b789b66d7e1a0b727a124c44
-          - name: jq 1.7.1
-            url: https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64
-            # https://github.com/jqlang/jq/releases/download/jq-1.7.1/sha256sum.txt
-            sha256: 5942c9b0934e510ee61eb3e30273f1b3fe2590df93933a93d7c58b81d19c8ff5
           # TODO upgrade to 1.8.2+ when https://github.com/jqlang/jq/pull/3570 is merged and released
           - name: jq 1.8.1
             url: https://github.com/jqlang/jq/releases/download/jq-1.8.1/jq-linux-amd64
             # https://github.com/jqlang/jq/releases/download/jq-1.8.1/sha256sum.txt
             sha256: 020468de7539ce70ef1bceaf7cde2e8c4f2ca6c3afb84642aabc5c97d9fc2a0d
+          - name: jq 1.7.1
+            url: https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64
+            # https://github.com/jqlang/jq/releases/download/jq-1.7.1/sha256sum.txt
+            sha256: 5942c9b0934e510ee61eb3e30273f1b3fe2590df93933a93d7c58b81d19c8ff5
+          - name: jq 1.6
+            url: https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64
+            # no upstream checksum available for jq 1.6
+            sha256: af986793a515d500ab2d35f8d2aecd656e764504b789b66d7e1a0b727a124c44
           # TODO jaq (--run-tests does not support module loading; needs a different test runner)
           # - name: jaq 3.1.0
           #   url: https://github.com/01mf02/jaq/releases/download/v3.1.0/jaq-x86_64-unknown-linux-gnu
