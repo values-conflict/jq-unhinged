@@ -12,7 +12,6 @@
 #
 #   bxor(a,b) = a + b − 2·band(a,b)
 #   bor(a,b)  = a + b −   band(a,b)
-#   bnot32(x) = 4294967295 − x
 #
 # Only band requires bit-level logic.  We implement it via a 256-entry nibble
 # lookup table (indexed by a_nibble*16 + b_nibble), processing 4 bits at a
@@ -52,9 +51,6 @@ def band($a; $b):
 
 # 32-bit XOR via arithmetic identity: a XOR b = a + b - 2*(a AND b)
 def bxor($a; $b): band($a; $b) as $ab | $a + $b - 2 * $ab;
-
-# 32-bit NOT: complement relative to 0xFFFFFFFF
-def bnot32: 4294967295 - .;
 
 # Convert a 32-bit word to an 8-character lowercase hex string.
 # Called 8× per SHA-256 digest and 16× per SHA-512 digest — not on the inner loop.

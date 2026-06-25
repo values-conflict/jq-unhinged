@@ -74,18 +74,7 @@ def sha256_H0: [
 ];
 
 # ── 32-bit word primitives ─────────────────────────────────────────────────
-# _nat, band, bxor, bnot32, word_to_hex are provided by bits.jq (included above).
-
-# Mask to 32 bits (jq numbers are IEEE 754 doubles, exact to 2^53)
-def mask32: . % 4294967296;
-
-# Modular 32-bit addition
-def add32($b): (. + $b) % 4294967296;
-
-# Right-rotate a 32-bit word by n positions (general, public API).
-# The two halves are always disjoint, so their OR = their sum.
-def rotr32($n):
-  (. / pow(2; $n) | floor) + ((. % pow(2; $n)) * pow(2; 32 - $n));
+# _nat, band, bxor, word_to_hex are provided by bits.jq (included above).
 
 # Specialised rotations used by SHA-256 — inlined constants avoid pow(2;n)
 # calls, saving ~41% per rotation vs the generic form above.

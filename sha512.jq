@@ -6,7 +6,7 @@
 #   sha512_from_stream(gen) — gen: any generator of byte integers → hex digest
 #
 # Base64 decoding is handled by b64.jq (included below).
-# Shared bitwise primitives (_nat, band, bxor, bnot32, word_to_hex) come from
+# Shared bitwise primitives (_nat, band, bxor, word_to_hex) come from
 # bits.jq (included below); sha256.jq and sha512.jq share these without duplication.
 #
 # ── 64-bit arithmetic via [hi, lo] pairs ────────────────────────────────────
@@ -99,25 +99,17 @@ def sha512_H0: [
   [1541459225,  327033209]
 ];
 
-# ── 64-bit operations built on the 32-bit band/bxor/bnot32 from bits.jq ──────
+# ── 64-bit operations built on the 32-bit band/bxor from bits.jq ──────
 #
 # jq does not support array destructuring in function parameter lists
 # (def f([a,b]) is a compile error).  All [hi,lo] destructuring is done
 # inside each function body via "$arg as [$h, $l]" bindings instead.
-
-# 64-bit AND: apply 32-bit band to each half independently.
-def band64($a; $b):
-  $a as [$ah, $al] | $b as [$bh, $bl] |
-  [band($ah;$bh), band($al;$bl)];
 
 # 64-bit XOR: same arithmetic identity as bxor, applied per-half.
 def bxor64($a; $b):
   $a as [$ah, $al] | $b as [$bh, $bl] |
   band($ah; $bh) as $h | band($al; $bl) as $l |
   [ $ah + $bh - 2*$h, $al + $bl - 2*$l ];
-
-# 64-bit NOT: complement each 32-bit half.
-def bnot64: [ 4294967295 - .[0], 4294967295 - .[1] ];
 
 # 64-bit modular addition with carry.
 # lo sum fits in 33 bits (≤ 2^33−1 < 2^53); carry is 0 or 1.

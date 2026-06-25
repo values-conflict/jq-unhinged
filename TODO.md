@@ -1,7 +1,6 @@
 - add tests for the bonus blake3 functions
   - remove bonus functions instead?
 - look for more algorithms, especially sha256-similar quantum-resistant ones
-- dead code, like `add32`
 - private functions should have private names (everything exports)
 - GitHub Actions
 - automated performance testing (instead of ad-hoc)
