@@ -3,7 +3,6 @@
   - remove bonus functions instead?
 - look for more algorithms, especially sha256-similar quantum-resistant ones
 - private functions should have private names (everything exports)
-- GitHub Actions
 - automated performance testing (instead of ad-hoc)
 - similarly, figure out some way to do coverage testing
 - tianon jqfmt
