@@ -1,4 +1,6 @@
-# jq-b64
+# jq-unhinged
+
+`jq` is a JSON processor.  Implementing SHA-256, BLAKE3, and gzip decompression in it is, strictly speaking, unhinged.
 
 Pure-`jq` streaming base64 decoder, SHA-256/SHA-512/BLAKE3 implementations, and gzip decompressor.
 No shell utilities, no external dependencies -- just `jq`. 🥳
