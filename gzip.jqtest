@@ -1,0 +1,54 @@
+# gzip.jqtest — test corpus for gzip.jq
+
+# gzip_from_b64: empty input → empty output
+include "gzip"; [gzip_from_b64]
+"H4sIAAAAAAAAAwMAAAAAAAAAAAA="
+[]
+
+# gzip_from_b64: "Hello, world!" (dynamic Huffman block)
+include "gzip"; [gzip_from_b64]
+"H4sIAAAAAAAAA/NIzcnJ11Eozy/KSVEEAObG5usNAAAA"
+[72,101,108,108,111,44,32,119,111,114,108,100,33]
+
+# gzip_from_b64: "Hello, world!" decoded as a string
+include "gzip"; [gzip_from_b64] | implode
+"H4sIAAAAAAAAA/NIzcnJ11Eozy/KSVEEAObG5usNAAAA"
+"Hello, world!"
+
+# gzip_from_b64: 64 × 'a' — back-reference run-length encoding
+include "gzip"; [gzip_from_b64] | length
+"H4sIAAAAAAAAA0tMpAwAAFVltIlAAAAA"
+64
+
+include "gzip"; [gzip_from_b64] | unique
+"H4sIAAAAAAAAA0tMpAwAAFVltIlAAAAA"
+[97]
+
+# gzip_from_b64: dynamic Huffman block (first 200 bytes of sha256.jq)
+include "gzip"; [gzip_from_b64] | length
+"H4sIAAAAAAAAAzWNPQ6CQBSEe04xCQ0UUBikoLOzNPEAZBee8Azswv4E7aw8gPGEnMTVyFST+TIzMWwvdvsyv85YH2+cvKEs+PPxkIUYPE4DjaSccKwVEqUh2S1sCdLz4FhZGJo9G2rTKI7isCAHbhAq5o5Js3K2+gH8r2p9qWVZYNP3ltXkHZI8rSCFpUCtM6w6rM8XyiJremEw6IVMEzB6uqHljqzbdj9bmsIayAAAAA=="
+200
+
+include "gzip"; [gzip_from_b64][0:3]
+"H4sIAAAAAAAAAzWNPQ6CQBSEe04xCQ0UUBikoLOzNPEAZBee8Azswv4E7aw8gPGEnMTVyFST+TIzMWwvdvsyv85YH2+cvKEs+PPxkIUYPE4DjaSccKwVEqUh2S1sCdLz4FhZGJo9G2rTKI7isCAHbhAq5o5Js3K2+gH8r2p9qWVZYNP3ltXkHZI8rSCFpUCtM6w6rM8XyiJremEw6IVMEzB6uqHljqzbdj9bmsIayAAAAA=="
+[35,32,115]
+
+# gzip_from_stream: exercise the stream entry point directly (same "Hello, world!" input)
+include "b64"; include "gzip"; [gzip_from_stream(b64_stream_decode)]
+"H4sIAAAAAAAAA/NIzcnJ11Eozy/KSVEEAObG5usNAAAA"
+[72,101,108,108,111,44,32,119,111,114,108,100,33]
+
+# gzip_from_b64: stored block (BTYPE=00, no compression) — exercises sa/sl/sc phases
+include "gzip"; [gzip_from_b64] | implode
+"H4sIAAAAAAAAAwENAPL/SGVsbG8sIHdvcmxkIebG5usNAAAA"
+"Hello, world!"
+
+# gzip_from_b64: FNAME optional header field — exercises hq routing + hn phase
+include "gzip"; [gzip_from_b64] | implode
+"H4sICBm2PGoAA2hlbGxvLnR4dADzSM3JyddRKM8vyklRBADmxubrDQAAAA=="
+"Hello, world!"
+
+# gzip_from_b64: FEXTRA optional header field — exercises hx0/hx1/hx phases
+include "gzip"; [gzip_from_b64] | implode
+"H4sIBAAAAAAAAwUAaGVsbG8BDQDy/0hlbGxvLCB3b3JsZCHmxubrDQAAAA=="
+"Hello, world!"

@@ -1,10 +1,10 @@
 # jq-b64
 
-Pure-`jq` streaming base64 decoder and SHA-256/SHA-512/BLAKE3 implementations.
+Pure-`jq` streaming base64 decoder, SHA-256/SHA-512/BLAKE3 implementations, and gzip decompressor.
 No shell utilities, no external dependencies -- just `jq`. 🥳
 
-The base64 decoder emits raw byte integers (0–255) as a generator, making it safe for arbitrary binary data.
-Unlike `jq`'s built-in `@base64d` -- which decodes to a UTF-8 string and silently mangles bytes above 127 -- this handles the full 0–255 range correctly. 😏
+All byte streams are represented as generators of raw integers (0–255), making them safe for arbitrary binary data.
+Unlike `jq`'s built-in `@base64d` -- which decodes to a UTF-8 string and silently mangles bytes above 127 -- these handle the full 0–255 range correctly. 😏
 
 All files are designed to be `include`d in your own `jq` programs.
 Point `jq` at the directory containing these files with `-L /path/to/dir`, or `-L .` when running from the repo root.
@@ -100,6 +100,37 @@ ede5c0b10f2ec4979c69b52f61e42ff5b413519ce09be0f14d098dcfe5f6f98d7d46337812f87327
 ```console
 $ jq -rn -L . 'include "b64"; include "blake3"; blake3_from_stream("SGVsbG8sIHdvcmxkIQ==" | b64_stream_decode)'
 ede5c0b10f2ec4979c69b52f61e42ff5b413519ce09be0f14d098dcfe5f6f98d
+```
+
+---
+
+## [`gzip.jq`](gzip.jq)
+
+Pure-`jq` gzip decompressor implementing RFC 1952 (gzip wrapper) and RFC 1951 (DEFLATE).
+Handles all three DEFLATE block types: stored (type 00), fixed Huffman (type 01), and dynamic Huffman (type 10).
+
+The decompressor is a streaming state machine: it consumes one compressed byte per iteration and emits
+decompressed bytes immediately, keeping only the DEFLATE sliding window (≤ 32 768 bytes) in memory.
+The gzip CRC32 footer is consumed but not verified.
+
+### `gzip_from_b64`
+
+```console
+$ jq -r -L . 'include "gzip"; [gzip_from_b64] | implode' <<< '"H4sIAAAAAAAAA/NIzcnJ11Eozy/KSVEEAObG5usNAAAA"'
+Hello, world!
+$ # note: implode maps byte integers to Unicode codepoints, so bytes > 127 will produce mojibake
+```
+
+### `gzip_from_stream(gen)`
+
+Takes a generator of compressed byte integers and emits decompressed byte integers.
+Composes naturally with `b64_stream_decode` and the hash functions:
+
+```console
+$ jq -rn -L . 'include "sha256"; include "gzip"; "H4sIAAAAAAAAA/NIzcnJ11Eozy/KSVEEAObG5usNAAAA" | sha256_from_stream(gzip_from_b64)'
+315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3
+$ printf 'Hello, world!' | sha256sum
+315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3  -
 ```
 
 ---
