@@ -9,3 +9,4 @@
 - look for easy low-hanging fruit in jq itself to speed it up
 - test with jaq too
 - jaq has native binary data support - how can we integrate with that in a clean way while still being jq-compatible?
+- drop 1.6 from GHA because it takes way too long (way too slow) -- we should also note in the README that 1.6 probably technically works, but is way too slow for real-world use (current tests across b64+sha256+sha512+blake3+gzip take ~10s on 1.7 and 1.8 and ~3m6s on 1.6)
