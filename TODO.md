@@ -7,3 +7,4 @@
 - look for easy low-hanging fruit in jq itself to speed it up
 - test with jaq too
 - jaq has native binary data support - how can we integrate with that in a clean way while still being jq-compatible?
+- swap argument orders so the data generator is always last

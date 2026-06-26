@@ -111,6 +111,46 @@ $ printf 'Hello, world!' | sha256sum
 
 ---
 
+## [`tar.jq`](tar.jq)
+
+Pure-`jq` POSIX ustar / GNU tar reader.
+Handles regular files, directories, symlinks, hard links, devices, FIFOs, and GNU long-name extensions (typeflag `L`/`K`).
+Truncated or missing EOF trailers are handled gracefully -- a stream that ends mid-block emits all completed entries.
+
+Peak memory equals the size of the largest single entry; the archive itself is never buffered in full.
+
+### `tar_entries_from_stream(gen)`
+
+Takes a generator of byte integers and yields one object per archive entry:
+
+```console
+$ jq -rn -L . 'include "b64"; include "tar"; "..." | [tar_entries_from_stream(b64_stream_decode) | .name]'
+["hello.txt","mydir/","link.txt"]
+```
+
+Composes naturally with `gzip_from_stream` for `.tar.gz` streams:
+
+```console
+$ jq -rn -L . 'include "b64"; include "gzip"; include "tar"; "..." | tar_entries_from_stream(gzip_from_stream(b64_stream_decode)) | select(.name == "config.json") | .data | implode'
+{"architecture":"amd64",...}
+```
+
+### `tar_entries_from_stream(gen; collectData)`
+
+Two-argument form where `collectData` is a filter evaluated on each parsed header.
+When it returns false, data bytes are skipped without buffering -- O(1) memory per entry.
+
+```console
+$ # list all filenames with no data buffered
+$ jq -rn -L . 'include "b64"; include "tar"; "..." | [tar_entries_from_stream(b64_stream_decode; false) | .name]'
+["hello.txt","mydir/","link.txt"]
+
+$ # collect data only for .json files
+$ jq -rn -L . 'include "b64"; include "tar"; "..." | [tar_entries_from_stream(b64_stream_decode; .name | endswith(".json"))]'
+```
+
+---
+
 ## Authorship
 
 This code was written using "claude my eyes right out" as an implementation vehicle, under close direction from Tianon at every step -- including algorithm choices, `jq` idioms, and design decisions.
