@@ -14,7 +14,7 @@
 # cannot hold them.  Every 64-bit word is therefore stored as [hi, lo] — two
 # 32-bit halves — keeping all intermediate values below 2^32 < 2^53.
 #
-#   add64([ah,al]; [bh,bl]):  carry from lo into hi via division; hi sum fits
+#   _add64([ah,al]; [bh,bl]):  carry from lo into hi via division; hi sum fits
 #                              in 33 bits (≤ 2^32−1 + 2^32−1 + 1 = 2^33−1 < 2^53)
 #
 #   ROTR64(n) for n < 32:   cross-half arithmetic, no swap needed
@@ -53,9 +53,9 @@ import "bits" as bits;
 # FIPS 180-4 §4.2.3: "These words represent the first sixty-four bits of the
 # fractional parts of the cube roots of the first eighty prime numbers."
 # Each constant is [hi, lo] (two 32-bit halves of the 64-bit value).
-# K[0..63] hi-halves match sha256_K exactly (same mathematical source, more bits).
+# K[0..63] hi-halves match _sha256_K exactly (same mathematical source, more bits).
 
-def sha512_K: [
+def _sha512_K: [
   [1116352408, 3609767458], [1899447441,  602891725], [3049323471, 3964484399], [3921009573, 2173295548],
   [ 961987163, 4081628472], [1508970993, 3053834265], [2453635748, 2937671579], [2870763221, 3664609560],
   [3624381080, 2734883394], [ 310598401, 1164996542], [ 607225278, 1323610764], [1426881987, 3590304994],
@@ -81,11 +81,11 @@ def sha512_K: [
 # ── Initial hash values H0[0..7] ──────────────────────────────────────────────
 # FIPS 180-4 §5.3.5: "These words were obtained by taking the first sixty-four
 # bits of the fractional parts of the square roots of the first eight prime
-# numbers."  sha512_H0[i][0] (the hi-half of each [hi, lo] pair) equals
-# sha256_H0[i] exactly — SHA-512 extends each 32-bit SHA-256 value to 64 bits
+# numbers."  _sha512_H0[i][0] (the hi-half of each [hi, lo] pair) equals
+# _sha256_H0[i] exactly — SHA-512 extends each 32-bit SHA-256 value to 64 bits
 # from the same mathematical source (FIPS 180-4 §5.3.3).
 
-def sha512_H0: [
+def _sha512_H0: [
   [1779033703, 4089235720],
   [3144134277, 2227873595],
   [1013904242, 4271175723],
@@ -103,7 +103,7 @@ def sha512_H0: [
 # inside each function body via "$arg as [$h, $l]" bindings instead.
 
 # 64-bit XOR: same arithmetic identity as bxor, applied per-half.
-def bxor64($a; $b):
+def _bxor64($a; $b):
   $a as [$ah, $al] | $b as [$bh, $bl] |
   bits::band($ah; $bh) as $h | bits::band($al; $bl) as $l |
   [ $ah + $bh - 2*$h, $al + $bl - 2*$l ];
@@ -111,13 +111,13 @@ def bxor64($a; $b):
 # 64-bit modular addition with carry.
 # lo sum fits in 33 bits (≤ 2^33−1 < 2^53); carry is 0 or 1.
 # hi sum ≤ 2^32−1 + 2^32−1 + 1 = 2^33−1 < 2^53 — safe before the final mask.
-def add64($a; $b):
+def _add64($a; $b):
   $a as [$ah, $al] | $b as [$bh, $bl] |
   ($al + $bl) as $s |
   [ ($ah + $bh + ($s / 4294967296 | floor)) % 4294967296, $s % 4294967296 ];
 
 # 64-bit word → 16-character lowercase hex string.
-def word64_to_hex: (.[0] | bits::word_to_hex) + (.[1] | bits::word_to_hex);
+def _word64_to_hex: (.[0] | bits::word_to_hex) + (.[1] | bits::word_to_hex);
 
 # ── Specialised 64-bit rotations and shifts ───────────────────────────────────
 #
@@ -133,10 +133,10 @@ def word64_to_hex: (.[0] | bits::word_to_hex) + (.[1] | bits::word_to_hex);
 #   new_l = (l >> n) | (h << 32−n) = (l / 2^n | floor) + (h % 2^n * 2^(32−n))
 #
 # Inline constants avoid pow(2;n) calls (~41% savings per rotation, same as sha256.jq).
-# sigma0_64 uses: ROTR1, ROTR8, SHR7
-# sigma1_64 uses: ROTR19, ROTR61, SHR6
-# Sigma0_64 uses: ROTR28, ROTR34, ROTR39
-# Sigma1_64 uses: ROTR14, ROTR18, ROTR41
+# _sigma0_64 uses: ROTR1, ROTR8, SHR7
+# _sigma1_64 uses: ROTR19, ROTR61, SHR6
+# _Sigma0_64 uses: ROTR28, ROTR34, ROTR39
+# _Sigma1_64 uses: ROTR14, ROTR18, ROTR41
 
 def _r64_1:  .[0] as $h | .[1] as $l |
   [ ($h/2|floor)         + ($l%2         * 2147483648),
@@ -198,7 +198,7 @@ def _s64_6:  .[0] as $h | .[1] as $l |            # SHR64(6)
 # Choice: for each bit, select from f (e=1) or g (e=0).
 # The two AND terms are always disjoint (e AND NOT(e) = 0), so XOR = addition.
 # Applied independently to each 32-bit half — 4 band calls total (vs 2 for SHA-256).
-def Ch64($e; $f; $g):
+def _ch64($e; $f; $g):
   $e as [$eh, $el] | $f as [$fh, $fl] | $g as [$gh, $gl] |
   [ bits::band($eh; $fh) + bits::band(4294967295 - $eh; $gh),
     bits::band($el; $fl) + bits::band(4294967295 - $el; $gl) ];
@@ -206,7 +206,7 @@ def Ch64($e; $f; $g):
 # Majority: output bit = majority of a, b, c.
 # Formula: a XOR ((a XOR b) AND (a XOR c)) — applied per half.
 # 8 band calls total (vs 4 for SHA-256).
-def Maj64($a; $b; $c):
+def _maj64($a; $b; $c):
   $a as [$ah, $al] | $b as [$bh, $bl] | $c as [$ch, $cl] |
   bits::band($ah; $bh) as $abh | ($ah + $bh - 2*$abh) as $axbh |
   bits::band($al; $bl) as $abl | ($al + $bl - 2*$abl) as $axbl |
@@ -219,27 +219,27 @@ def Maj64($a; $b; $c):
 # Uppercase Σ — used in compression rounds.
 # Each is a 3-way XOR of rotations; computed as two sequential 2-way XORs.
 # 4 band calls total per Sigma (vs 2 for SHA-256).
-def Sigma0_64:
+def _Sigma0_64:
   (_r64_28) as $r28 | (_r64_34) as $r34 | (_r64_39) as $r39 |
-  bxor64($r28; $r34) as $x |
-  bxor64($x; $r39);
+  _bxor64($r28; $r34) as $x |
+  _bxor64($x; $r39);
 
-def Sigma1_64:
+def _Sigma1_64:
   (_r64_14) as $r14 | (_r64_18) as $r18 | (_r64_41) as $r41 |
-  bxor64($r14; $r18) as $x |
-  bxor64($x; $r41);
+  _bxor64($r14; $r18) as $x |
+  _bxor64($x; $r41);
 
 # Lowercase σ — used to extend the message schedule.
 # Third operation is SHR (not ROTR); SHR via integer divide on the high half.
-def sigma0_64:
+def _sigma0_64:
   (_r64_1) as $r1 | (_r64_8) as $r8 | (_s64_7) as $s7 |
-  bxor64($r1; $r8) as $x |
-  bxor64($x; $s7);
+  _bxor64($r1; $r8) as $x |
+  _bxor64($x; $s7);
 
-def sigma1_64:
+def _sigma1_64:
   (_r64_19) as $r19 | (_r64_61) as $r61 | (_s64_6) as $s6 |
-  bxor64($r19; $r61) as $x |
-  bxor64($x; $s6);
+  _bxor64($r19; $r61) as $x |
+  _bxor64($x; $s6);
 
 # ── Message schedule ──────────────────────────────────────────────────────────
 # FIPS 180-4 §6.4.2 step 1: "Prepare the message schedule, {Wt}:"
@@ -248,18 +248,18 @@ def sigma1_64:
 
 # Callers always have the block as a derived value, never as their natural .
 # so this takes it as a $arg rather than via pipe.
-def make_schedule512($block):
+def _make_schedule512($block):
   # W[0..15]: pack 8 bytes big-endian into each [hi, lo] 64-bit word
   [ range(16) as $i |
     [ ($block[$i*8  ] * 16777216) + ($block[$i*8+1] * 65536) + ($block[$i*8+2] * 256) + $block[$i*8+3],
       ($block[$i*8+4] * 16777216) + ($block[$i*8+5] * 65536) + ($block[$i*8+6] * 256) + $block[$i*8+7] ] ] |
   # W[16..79]: extend via σ1(W[i-2]) + W[i-7] + σ0(W[i-15]) + W[i-16]
   # Unlike SHA-256, we cannot defer the mask: four 64-bit values summing directly
-  # could exceed 2^66 > 2^53.  add64 carries correctly via [hi, lo] at each step.
+  # could exceed 2^66 > 2^53.  _add64 carries correctly via [hi, lo] at each step.
   reduce range(16; 80) as $i (
     .;
     . as $w |
-    . + [ add64(add64(add64(($w[$i-2]|sigma1_64); $w[$i-7]); ($w[$i-15]|sigma0_64)); $w[$i-16]) ]
+    . + [ _add64(_add64(_add64(($w[$i-2]|_sigma1_64); $w[$i-7]); ($w[$i-15]|_sigma0_64)); $w[$i-16]) ]
   );
 
 # ── Compression function ──────────────────────────────────────────────────────
@@ -272,22 +272,22 @@ def make_schedule512($block):
 # Input (.): [a,b,c,d,e,f,g,h] working variables (each a [hi,lo] pair)
 # Args: ws — 80-word schedule, ks — 80 round constants (both as [hi,lo] pairs)
 # Output: [a,b,c,d,e,f,g,h] after 80 rounds
-def compress512($ws; $ks):
+def _compress512($ws; $ks):
   reduce range(80) as $i (
     .;
     . as [$a, $b, $c, $d, $e, $f, $g, $h] |
     # T1 = h + Σ1(e) + Ch(e,f,g) + K[i] + W[i]
-    add64(add64(add64(add64($h; ($e|Sigma1_64)); Ch64($e; $f; $g)); $ws[$i]); $ks[$i]) as $T1 |
+    _add64(_add64(_add64(_add64($h; ($e|_Sigma1_64)); _ch64($e; $f; $g)); $ws[$i]); $ks[$i]) as $T1 |
     # T2 = Σ0(a) + Maj(a,b,c)
-    add64(($a|Sigma0_64); Maj64($a; $b; $c)) as $T2 |
+    _add64(($a|_Sigma0_64); _maj64($a; $b; $c)) as $T2 |
     # Rotate working variables
-    [ add64($T1; $T2), $a, $b, $c, add64($d; $T1), $e, $f, $g ]
+    [ _add64($T1; $T2), $a, $b, $c, _add64($d; $T1), $e, $f, $g ]
   );
 
-def process_block512($block; $h; $k):
-  make_schedule512($block) as $w |
-  ($h | compress512($w; $k)) as $comp |
-  [ range(8) as $i | add64($h[$i]; $comp[$i]) ];
+def _process_block512($block; $h; $k):
+  _make_schedule512($block) as $w |
+  ($h | _compress512($w; $k)) as $comp |
+  [ range(8) as $i | _add64($h[$i]; $comp[$i]) ];
 
 # ── SHA-512 finalisation padding ──────────────────────────────────────────────
 # FIPS 180-4 §5.1.2: "Suppose that the length of the message, M, is l bits.
@@ -305,7 +305,7 @@ def process_block512($block; $h; $k):
 #
 # The bit-count field is 128 bits (16 bytes).  For inputs < 2^61 bytes (all
 # practical cases), the high 64 bits are always zero.
-def sha512_final_pad($buf; $total_len):
+def _sha512_final_pad($buf; $total_len):
   ($total_len * 8) as $bits |
   $buf + [128]
     + [ range(((111 - $total_len) % 128 + 128) % 128) | 0 ]
@@ -327,23 +327,23 @@ def sha512_final_pad($buf; $total_len):
 # bytes exist at any moment, regardless of total input size.  After the generator
 # is exhausted the remaining buffer is padded and the final 1–2 blocks processed.
 def sha512_from_stream(gen):
-  sha512_K as $k |
+  _sha512_K as $k |
   # Streaming phase: one byte per reduce step, block processed when buf hits 128
   reduce gen as $byte (
-    { h: sha512_H0, buf: [], len: 0 };
+    { h: _sha512_H0, buf: [], len: 0 };
     .buf += [$byte] | .len += 1 |
     if (.buf | length) == 128 then
-      process_block512(.buf; .h; $k) as $nh |
+      _process_block512(.buf; .h; $k) as $nh |
       .h = $nh | .buf = []
     else . end
   ) |
   # Finalisation phase: pad the remaining buffer and process 1–2 final blocks
   .h as $H |
-  sha512_final_pad(.buf; .len) |
+  _sha512_final_pad(.buf; .len) |
   . as $padded |
   (length / 128) as $nblocks |
   reduce range($nblocks) as $bi (
     $H;
-    process_block512($padded[$bi * 128 : ($bi + 1) * 128]; .; $k)
+    _process_block512($padded[$bi * 128 : ($bi + 1) * 128]; .; $k)
   ) |
-  map(word64_to_hex) | join("");
+  map(_word64_to_hex) | join("");

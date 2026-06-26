@@ -39,7 +39,7 @@ import "bits" as bits;
 # FIPS 180-4 §4.2.2: "These words represent the first thirty-two bits of the
 # fractional parts of the cube roots of the first sixty-four prime numbers."
 
-def sha256_K: [
+def _sha256_K: [
   1116352408, 1899447441, 3049323471, 3921009573,
    961987163, 1508970993, 2453635748, 2870763221,
   3624381080,  310598401,  607225278, 1426881987,
@@ -62,9 +62,9 @@ def sha256_K: [
 # FIPS 180-4 §5.3.3: "These words were obtained by taking the first thirty-two
 # bits of the fractional parts of the square roots of the first eight prime
 # numbers."  sha512_H0 uses the same mathematical source extended to 64 bits:
-# sha512_H0[i][0] (the hi-half of each [hi, lo] pair) equals sha256_H0[i].
+# sha512_H0[i][0] (the hi-half of each [hi, lo] pair) equals _sha256_H0[i].
 
-def sha256_H0: [
+def _sha256_H0: [
   1779033703, 3144134277, 1013904242, 2773480762,
   1359893119, 2600822924,  528734635, 1541459225
 ];
@@ -87,8 +87,8 @@ def _r25: (. / 33554432  | floor) + (. % 33554432  * 128);
 
 # ── SHA-256 Boolean functions ──────────────────────────────────────────────
 # FIPS 180-4 §4.1.2:
-#   Ch( x, y, z)  = (x ∧ y) ⊕ (¬x ∧ z)
-#   Maj( x, y, z) = (x ∧ y) ⊕ (x ∧ z) ⊕ (y ∧ z)
+#   _ch( x, y, z)  = (x ∧ y) ⊕ (¬x ∧ z)
+#   _maj( x, y, z) = (x ∧ y) ⊕ (x ∧ z) ⊕ (y ∧ z)
 #   Σ₀²⁵⁶(x)      = ROTR²(x)  ⊕ ROTR¹³(x) ⊕ ROTR²²(x)
 #   Σ₁²⁵⁶(x)      = ROTR⁶(x)  ⊕ ROTR¹¹(x) ⊕ ROTR²⁵(x)
 #   σ₀²⁵⁶(x)      = ROTR⁷(x)  ⊕ ROTR¹⁸(x) ⊕ SHR³(x)
@@ -96,12 +96,12 @@ def _r25: (. / 33554432  | floor) + (. % 33554432  * 128);
 
 # Choice: for each bit, select from f (e=1) or g (e=0).
 # The two AND terms are always disjoint, so XOR = plain addition.
-def Ch($e; $f; $g): bits::band($e; $f) + bits::band(4294967295 - $e; $g);
+def _ch($e; $f; $g): bits::band($e; $f) + bits::band(4294967295 - $e; $g);
 
 # Majority: output bit = majority of a, b, c.
 # Formula: a XOR ((a XOR b) AND (a XOR c)) — 4 band calls vs 5 in the
 # straightforward (a&b)^(a&c)^(b&c) expansion.
-def Maj($a; $b; $c):
+def _maj($a; $b; $c):
   bits::band($a; $b) as $ab | ($a + $b - 2*$ab) as $axb |
   bits::band($a; $c) as $ac | ($a + $c - 2*$ac) as $axc |
   bits::band($axb; $axc) as $x |
@@ -109,23 +109,23 @@ def Maj($a; $b; $c):
 
 # Uppercase Σ — used in the 64 compression rounds.
 # Each is a 3-way XOR of rotations; computed as two sequential 2-way XORs.
-def Sigma0:
+def _Sigma0:
   _r2 as $r2 | _r13 as $r13 | _r22 as $r22 |
   bits::band($r2; $r13) as $ab | ($r2 + $r13 - 2*$ab) as $x |
   $x + $r22 - 2 * bits::band($x; $r22);
 
-def Sigma1:
+def _Sigma1:
   _r6 as $r6 | _r11 as $r11 | _r25 as $r25 |
   bits::band($r6; $r11) as $ab | ($r6 + $r11 - 2*$ab) as $x |
   $x + $r25 - 2 * bits::band($x; $r25);
 
 # Lowercase σ — used to extend the message schedule; SHR via integer divide.
-def sigma0:
+def _sigma0:
   _r7 as $r7 | _r18 as $r18 | (. / 8 | floor) as $s |
   bits::band($r7; $r18) as $ab | ($r7 + $r18 - 2*$ab) as $x |
   $x + $s - 2 * bits::band($x; $s);
 
-def sigma1:
+def _sigma1:
   _r17 as $r17 | _r19 as $r19 | (. / 1024 | floor) as $s |
   bits::band($r17; $r19) as $ab | ($r17 + $r19 - 2*$ab) as $x |
   $x + $s - 2 * bits::band($x; $s);
@@ -137,7 +137,7 @@ def sigma1:
 
 # Callers always have the block as a derived value, never as their natural .
 # so this takes it as a $arg rather than via pipe.
-def make_schedule($block):
+def _make_schedule($block):
   # W[0..15]: pack 4 bytes big-endian into each 32-bit word
   [ range(16) as $i |
       ($block[$i * 4    ] * 16777216) +
@@ -149,27 +149,27 @@ def make_schedule($block):
   reduce range(16; 64) as $i (
     .;
     . as $w |
-    . + [(($w[$i-2]|sigma1) + $w[$i-7] + ($w[$i-15]|sigma0) + $w[$i-16]) % 4294967296]
+    . + [(($w[$i-2]|_sigma1) + $w[$i-7] + ($w[$i-15]|_sigma0) + $w[$i-16]) % 4294967296]
   );
 
 # ── Compression function ───────────────────────────────────────────────────
 # FIPS 180-4 §6.2.2 steps 3–4: for t = 0 to 63:
-#   T₁ = h + Σ₁²⁵⁶(e) + Ch(e,f,g) + Kt²⁵⁶ + Wt
-#   T₂ = Σ₀²⁵⁶(a) + Maj(a,b,c)
+#   T₁ = h + Σ₁²⁵⁶(e) + _ch(e,f,g) + Kt²⁵⁶ + Wt
+#   T₂ = Σ₀²⁵⁶(a) + _maj(a,b,c)
 #   h=g; g=f; f=e; e=d+T₁; d=c; c=b; b=a; a=T₁+T₂          (all mod 2³²)
 # Then: H₀^(i) = a+H₀^(i-1), …, H₇^(i) = h+H₇^(i-1)        (all mod 2³²)
 
 # Input (.): [a,b,c,d,e,f,g,h] working variables (initialised from hash state)
 # Args: w — 64-word schedule, k — 64 round constants
 # Output: [a,b,c,d,e,f,g,h] after 64 rounds
-def compress($ws; $ks):
+def _compress($ws; $ks):
   reduce range(64) as $i (
     .;
     . as [$a, $b, $c, $d, $e, $f, $g, $h] |
-    # T1 = h + Σ1(e) + Ch(e,f,g) + K[i] + W[i]   (sum of ≤5 32-bit values < 2^53)
-    (($h + ($e | Sigma1) + Ch($e; $f; $g) + $ws[$i] + $ks[$i]) % 4294967296) as $T1 |
-    # T2 = Σ0(a) + Maj(a,b,c)
-    ((($a | Sigma0) + Maj($a; $b; $c)) % 4294967296) as $T2 |
+    # T1 = h + Σ1(e) + _ch(e,f,g) + K[i] + W[i]   (sum of ≤5 32-bit values < 2^53)
+    (($h + ($e | _Sigma1) + _ch($e; $f; $g) + $ws[$i] + $ks[$i]) % 4294967296) as $T1 |
+    # T2 = Σ0(a) + _maj(a,b,c)
+    ((($a | _Sigma0) + _maj($a; $b; $c)) % 4294967296) as $T2 |
     # Rotate working variables
     [ ($T1 + $T2) % 4294967296, $a, $b, $c, ($d + $T1) % 4294967296, $e, $f, $g ]
   );
@@ -178,9 +178,9 @@ def compress($ws; $ks):
 # This avoids the pipe-then-evaluate trap: callers pass .buf and .h as $
 # args without piping the block in, so both are resolved against the caller's
 # current . (typically the accumulator state object) before the function runs.
-def process_block($block; $h; $k):
-  make_schedule($block) as $w |
-  ($h | compress($w; $k)) as $comp |
+def _process_block($block; $h; $k):
+  _make_schedule($block) as $w |
+  ($h | _compress($w; $k)) as $comp |
   [ range(8) as $i | ($h[$i] + $comp[$i]) % 4294967296 ];
 
 # ── SHA-256 finalisation padding ───────────────────────────────────────────
@@ -196,7 +196,7 @@ def process_block($block; $h; $k):
 #
 # Appends: 0x80, zero bytes until total ≡ 56 (mod 64), 64-bit big-endian
 # bit-count. Result is always 64 or 128 bytes (one or two final blocks).
-def sha256_final_pad($buf; $total_len):
+def _sha256_final_pad($buf; $total_len):
   ($total_len * 8) as $bits |
   $buf + [128]
     + [ range(((55 - $total_len) % 64 + 64) % 64) | 0 ]
@@ -218,23 +218,23 @@ def sha256_final_pad($buf; $total_len):
 # generator is exhausted the remaining buffer is padded and the final 1–2
 # blocks are processed to produce the digest.
 def sha256_from_stream(gen):
-  sha256_K as $k |
+  _sha256_K as $k |
   # Streaming phase: one byte per reduce step, block processed when buf hits 64
   reduce gen as $byte (
-    { h: sha256_H0, buf: [], len: 0 };
+    { h: _sha256_H0, buf: [], len: 0 };
     .buf += [$byte] | .len += 1 |
     if (.buf | length) == 64 then
-      process_block(.buf; .h; $k) as $nh |
+      _process_block(.buf; .h; $k) as $nh |
       .h = $nh | .buf = []
     else . end
   ) |
   # Finalisation phase: pad the remaining buffer and process 1–2 final blocks
   .h as $H |
-  sha256_final_pad(.buf; .len) |
+  _sha256_final_pad(.buf; .len) |
   . as $padded |
   (length / 64) as $nblocks |
   reduce range($nblocks) as $bi (
     $H;
-    process_block($padded[$bi * 64 : ($bi + 1) * 64]; .; $k)
+    _process_block($padded[$bi * 64 : ($bi + 1) * 64]; .; $k)
   ) |
   map(bits::word_to_hex) | join("");

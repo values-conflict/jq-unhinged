@@ -1,0 +1,76 @@
+# bits.jqtest — test corpus for bits.jq
+
+# band: zero AND zero
+include "bits"; band(0; 0)
+null
+0
+
+# band: all-ones AND zero
+include "bits"; band(4294967295; 0)
+null
+0
+
+# band: all-ones AND all-ones
+include "bits"; band(4294967295; 4294967295)
+null
+4294967295
+
+# band: 0b1100 AND 0b1010 = 0b1000
+include "bits"; band(12; 10)
+null
+8
+
+# band: 0xFF AND 0x0F = 0x0F
+include "bits"; band(255; 15)
+null
+15
+
+# band: alternating-bit patterns cancel — 0xAAAAAAAA AND 0x55555555 = 0
+include "bits"; band(2863311530; 1431655765)
+null
+0
+
+# bxor: zero XOR zero
+include "bits"; bxor(0; 0)
+null
+0
+
+# bxor: XOR with zero is identity
+include "bits"; bxor(4294967295; 0)
+null
+4294967295
+
+# bxor: self-XOR is zero
+include "bits"; bxor(4294967295; 4294967295)
+null
+0
+
+# bxor: 0b1100 XOR 0b1010 = 0b0110
+include "bits"; bxor(12; 10)
+null
+6
+
+# bxor: alternating-bit patterns merge — 0xAAAAAAAA XOR 0x55555555 = 0xFFFFFFFF
+include "bits"; bxor(2863311530; 1431655765)
+null
+4294967295
+
+# word_to_hex: zero
+include "bits"; 0 | word_to_hex
+null
+"00000000"
+
+# word_to_hex: 0x000000FF
+include "bits"; 255 | word_to_hex
+null
+"000000ff"
+
+# word_to_hex: 0xFFFFFFFF (max 32-bit value)
+include "bits"; 4294967295 | word_to_hex
+null
+"ffffffff"
+
+# word_to_hex: 0xDEADBEEF
+include "bits"; 3735928559 | word_to_hex
+null
+"deadbeef"

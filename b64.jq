@@ -50,7 +50,7 @@
 
 # Map a single base64 codepoint to its 6-bit value.
 # Returns -1 for '=' (padding) or any invalid character.
-def b64val:
+def _b64val:
   if   . >= 65 and . <= 90  then . - 65   # A–Z → 0–25
   elif . >= 97 and . <= 122 then . - 71   # a–z → 26–51  ('a'=97, 97−71=26)
   elif . >= 48 and . <= 57  then . + 4    # 0–9 → 52–61  ('0'=48, 48+4=52)
@@ -81,7 +81,7 @@ def b64val:
 def b64_stream_decode:
   explode as $chars |
   range(0; ($chars | length); 4) as $i |
-  ($chars[$i : $i + 4] | map(b64val)) as $v |
+  ($chars[$i : $i + 4] | map(_b64val)) as $v |
   if $v[2] == -1 then
     ($v[0] * 4 + ($v[1] / 16 | floor))
   elif $v[3] == -1 then

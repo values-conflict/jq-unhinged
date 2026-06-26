@@ -1,46 +1,5 @@
 # b64_tests.jq — test corpus for b64.jq
 
-# b64val: A → 0,  Z → 25
-include "b64"; b64val
-65
-0
-
-include "b64"; b64val
-90
-25
-
-# b64val: a → 26,  z → 51
-include "b64"; b64val
-97
-26
-
-include "b64"; b64val
-122
-51
-
-# b64val: 0 → 52,  9 → 61
-include "b64"; b64val
-48
-52
-
-include "b64"; b64val
-57
-61
-
-# b64val: + → 62,  / → 63
-include "b64"; b64val
-43
-62
-
-include "b64"; b64val
-47
-63
-
-# b64val: = → -1 (padding sentinel)
-include "b64"; b64val
-61
--1
-
 # b64_stream_decode: empty string → empty array
 include "b64"; [b64_stream_decode]
 ""
