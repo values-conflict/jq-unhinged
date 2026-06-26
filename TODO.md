@@ -7,4 +7,3 @@
 - look for easy low-hanging fruit in jq itself to speed it up
 - test with jaq too
 - jaq has native binary data support - how can we integrate with that in a clean way while still being jq-compatible?
-- base64 *encoding* is a naturally stream-shaped thing that could be implemented with `-r` and a loop that takes a stream of byte integers like what we get into/out of these functions and emits a stream of "wrapped" base64 strings -- we could even implement a version that takes an arbitrary wrap length like `base64 -w` does (including accepting 0 as a valid "width" for "collect everything into a single string")
