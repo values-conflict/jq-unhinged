@@ -47,17 +47,18 @@
 #      14  O          31  f          48  w
 #      15  P          32  g          49  x
 #      16  Q          33  h          50  y
-
+#
 # Map a single base64 codepoint to its 6-bit value.
 # Returns -1 for '=' (padding) or any invalid character.
 def _b64val:
-  if   . >= 65 and . <= 90  then . - 65   # A–Z → 0–25
-  elif . >= 97 and . <= 122 then . - 71   # a–z → 26–51  ('a'=97, 97−71=26)
-  elif . >= 48 and . <= 57  then . + 4    # 0–9 → 52–61  ('0'=48, 48+4=52)
-  elif . == 43               then 62       # + → 62
-  elif . == 47               then 63       # / → 63
-  else                            -1       # = (padding) or invalid
-  end;
+	if . >= 65 and . <= 90 then . - 65    # A–Z → 0–25
+	elif . >= 97 and . <= 122 then . - 71 # a–z → 26–51  ('a'=97, 97−71=26)
+	elif . >= 48 and . <= 57 then . + 4   # 0–9 → 52–61  ('0'=48, 48+4=52)
+	elif . == 43 then 62                  # +   → 62
+	elif . == 47 then 63                  # /   → 63
+	else -1                               # = (padding) or invalid
+	end
+;
 
 # ── Streaming decoder ──────────────────────────────────────────────────────
 #
@@ -71,7 +72,7 @@ def _b64val:
 #   (1) Final input quantum is a multiple of 24 bits → XXXX, no padding, 3 bytes out
 #   (2) Final input quantum is exactly 8 bits        → XX==, 1 byte out
 #   (3) Final input quantum is exactly 16 bits       → XXX=, 2 bytes out
-
+#
 # Input (.): base64-encoded string
 # Output: generator — emits individual decoded byte integers (0–255).
 #         Processes 4 input characters → 1, 2, or 3 output bytes:
@@ -79,31 +80,32 @@ def _b64val:
 #           "XXX=" → 2 bytes (18 data bits)
 #           "XXXX" → 3 bytes (24 data bits)
 def b64_stream_decode:
-  explode as $chars |
-  range(0; ($chars | length); 4) as $i |
-  ($chars[$i : $i + 4] | map(_b64val)) as $v |
-  if $v[2] == -1 then
-    ($v[0] * 4 + ($v[1] / 16 | floor))
-  elif $v[3] == -1 then
-    ($v[0] * 4 + ($v[1] / 16 | floor)),
-    (($v[1] % 16) * 16 + ($v[2] / 4 | floor))
-  else
-    ($v[0] * 4 + ($v[1] / 16 | floor)),
-    (($v[1] % 16) * 16 + ($v[2] / 4 | floor)),
-    (($v[2] % 4) * 64 + $v[3])
-  end;
+	explode as $chars
+	| range(0; ($chars | length); 4) as $i
+	| ($chars[$i:$i + 4] | map(_b64val)) as $v
+	| if $v[2] == -1 then
+		$v[0] * 4 + ($v[1] / 16 | floor)
+	elif $v[3] == -1 then
+		($v[0] * 4 + ($v[1] / 16 | floor)),
+		(($v[1] % 16) * 16 + ($v[2] / 4 | floor))
+	else
+		($v[0] * 4 + ($v[1] / 16 | floor)),
+		(($v[1] % 16) * 16 + ($v[2] / 4 | floor)),
+		(($v[2] % 4) * 64 + $v[3])
+	end
+;
 
 # ── Base64 value → character codepoint ────────────────────────────────────
 #
 # inverse of b64val: maps a 6-bit value (0–63) to its ASCII codepoint
-
+#
 # map a 6-bit value (0–63) to its base64 character codepoint (inverse of b64val)
 def _b64_codepoint:
-	if   . < 26 then . + 65   # 0–25  → A–Z  ('A'=65)
-	elif . < 52 then . + 71   # 26–51 → a–z  ('a'=97, 97−26=71)
-	elif . < 62 then . - 4    # 52–61 → 0–9  ('0'=48, 48−52=−4)
-	elif . == 62 then 43       # 62    → '+'
-	else              47       # 63    → '/'
+	if . < 26 then . + 65   # 0–25  → A–Z  ('A'=65)
+	elif . < 52 then . + 71 # 26–51 → a–z  ('a'=97, 97−26=71)
+	elif . < 62 then . - 4  # 52–61 → 0–9  ('0'=48, 48−52=−4)
+	elif . == 62 then 43    # 62    → '+'
+	else 47                 # 63    → '/'
 	end
 ;
 
@@ -113,38 +115,41 @@ def _b64_codepoint:
 # the input length is not a multiple of 3:
 #   n ≡ 1 (mod 3) → "XX=="  (1 data byte  → 2 base64 chars + "==")
 #   n ≡ 2 (mod 3) → "XXX="  (2 data bytes → 3 base64 chars + "=")
-
+#
 # stream bytes in triples; emit one 4-char base64 group per triple;
 # null sentinel triggers padding for any remaining 1–2 bytes
 def _b64_groups(gen):
-	foreach (gen, null) as $byte (
-		{ b0: null, b1: null, group: null };
+	foreach (gen, null) as $byte ({ b0: null, b1: null, group: null };
 		.group = null
 		| if $byte == null then
 			if .b1 != null then
 				.b0 as $b0
 				| .b1 as $b1
-				| .group = ([
-					($b0 / 4 | floor | _b64_codepoint),
-					(($b0 % 4) * 16 + ($b1 / 16 | floor) | _b64_codepoint),
-					(($b1 % 16) * 4 | _b64_codepoint),
-					61, # '='
-					empty
-				] | implode)
+				| .group = (
+					[
+						($b0 / 4 | floor | _b64_codepoint),
+						(($b0 % 4) * 16 + ($b1 / 16 | floor) | _b64_codepoint),
+						(($b1 % 16) * 4 | _b64_codepoint),
+						61, # '='
+						empty
+					]
+					| implode
+				)
 				| .b0 = null
 				| .b1 = null
 			elif .b0 != null then
 				.b0 as $b0
-				| .group = ([
-					($b0 / 4 | floor | _b64_codepoint),
-					(($b0 % 4) * 16 | _b64_codepoint),
-					61, 61, # '=='
-					empty
-				] | implode)
+				| .group = (
+					[
+						($b0 / 4 | floor | _b64_codepoint),
+						(($b0 % 4) * 16 | _b64_codepoint),
+						61, 61, # '=='
+						empty
+					]
+					| implode
+				)
 				| .b0 = null
-			else
-				.
-			end
+			else . end
 		elif .b0 == null then
 			.b0 = $byte
 		elif .b1 == null then
@@ -152,18 +157,20 @@ def _b64_groups(gen):
 		else
 			.b0 as $b0
 			| .b1 as $b1
-			| .group = ([
-				($b0 / 4 | floor | _b64_codepoint),
-				(($b0 % 4) * 16 + ($b1 / 16 | floor) | _b64_codepoint),
-				(($b1 % 16) * 4 + ($byte / 64 | floor) | _b64_codepoint),
-				($byte % 64 | _b64_codepoint),
-				empty
-			] | implode)
+			| .group = (
+				[
+					($b0 / 4 | floor | _b64_codepoint),
+					(($b0 % 4) * 16 + ($b1 / 16 | floor) | _b64_codepoint),
+					(($b1 % 16) * 4 + ($byte / 64 | floor) | _b64_codepoint),
+					($byte % 64 | _b64_codepoint),
+					empty
+				]
+				| implode
+			)
 			| .b0 = null
 			| .b1 = null
-		end;
-		if .group != null then .group else empty end
-	)
+		end
+	; if .group != null then .group else empty end)
 ;
 
 # gen: generator of byte integers (0–255)
@@ -173,26 +180,25 @@ def _b64_groups(gen):
 #   wrap=0 → exactly one string ("" for empty input)
 #   wrap=N → one string per N-character line (empty input → no output)
 def b64_stream_encode(gen; $wrap):
-	foreach (_b64_groups(gen), null) as $group (
-		{ line: "", readyLines: [] };
+	foreach (_b64_groups(gen), null) as $group ({ line: "", readyLines: [] };
 		if $group == null then
-			if (.line | length) > 0 or $wrap == 0 then { line: "", readyLines: [ .line ] }
-			else { line: "", readyLines: [] }
-			end
+			if (.line | length) > 0 or $wrap == 0 then
+				{ line: "", readyLines: [ .line ] }
+			else { line: "", readyLines: [] } end
 		else
-			(.line + $group) as $newLine |
-			($newLine | length) as $len |
-			(if $wrap == 0 then 0 else $len / $wrap | floor end) as $numLines |
-			{
-				line: $newLine[$numLines * $wrap :],
+			(.line + $group) as $newLine
+			| ($newLine | length) as $len
+			| (if $wrap == 0 then 0 else $len / $wrap | floor end) as $numLines
+			| {
+				line: $newLine[$numLines * $wrap:],
 				readyLines: [
-					range($numLines) as $i | $newLine[$i * $wrap : ($i + 1) * $wrap],
-					empty
+					range($numLines) as $i
+					| $newLine[$i * $wrap:($i + 1) * $wrap],
+						empty
 				],
 			}
-		end;
-		.readyLines[]
-	)
+		end
+	; .readyLines[])
 ;
 
 def b64_stream_encode(gen):

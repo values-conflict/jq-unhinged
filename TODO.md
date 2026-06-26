@@ -3,7 +3,6 @@
 - private functions should have private names (everything exports)
 - automated performance testing (instead of ad-hoc)
 - similarly, figure out some way to do coverage testing
-- tianon jqfmt
 - look for easy low-hanging fruit in jq itself to speed it up
 - test with jaq too
 - jaq has native binary data support - how can we integrate with that in a clean way while still being jq-compatible?
