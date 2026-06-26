@@ -11,6 +11,8 @@ Unlike `jq`'s built-in `@base64d` -- which decodes to a UTF-8 string and silentl
 All files are designed to be `include`d in your own `jq` programs.
 Point `jq` at the directory containing these files with `-L /path/to/dir`, or `-L .` when running from the repo root.
 
+`jq` 1.7+ is recommended.  `jq` 1.6 technically works, but it's _way_ too slow for real-world use (the full test suite takes ~3 minutes on 1.6 vs ~10 seconds on 1.7 and 1.8).  Debian Trixie+ ships `jq` 1.7+, so this shouldn't be a problem in practice.
+
 ---
 
 ## [`b64.jq`](b64.jq)
